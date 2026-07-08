@@ -25,6 +25,12 @@ const LOADING_MESSAGES = [
 const CreateTrip = () => {
   const navigate = useNavigate();
   const shouldReduceMotion = useReducedMotion();
+
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
+  const todayStr = `${year}-${month}-${day}`;
   
   const [step, setStep] = useState(1);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -65,6 +71,18 @@ const CreateTrip = () => {
     } else if (step === 2) {
       if (!startDate) return toast.error("Please select a start date");
       if (!endDate) return toast.error("Please select an end date");
+
+      // Timezone-agnostic local day check
+      const localToday = new Date();
+      localToday.setHours(0, 0, 0, 0);
+
+      const start = new Date(startDate);
+      start.setHours(0, 0, 0, 0);
+
+      if (start < localToday) {
+        return toast.error("Start date cannot be in the past");
+      }
+
       if (new Date(startDate) > new Date(endDate)) {
         return toast.error("Start date must be before or equal to end date");
       }
