@@ -9,30 +9,33 @@ export const generateRefreshToken = (id) => {
 };
 
 export const setTokenCookies = (res, accessToken, refreshToken) => {
+  const isProduction = process.env.NODE_ENV === "production";
+
   // Access token cookie (expires in 15 minutes)
   res.cookie("accessToken", accessToken, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    secure: isProduction,
+    sameSite: isProduction ? "none" : "lax",
     maxAge: 15 * 60 * 1000, // 15 mins in ms
   });
 
   // Refresh token cookie (expires in 7 days)
   res.cookie("refreshToken", refreshToken, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    secure: isProduction,
+    sameSite: isProduction ? "none" : "lax",
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in ms
   });
 };
 
 export const clearTokenCookies = (res) => {
-  res.cookie("accessToken", "", {
+  const isProduction = process.env.NODE_ENV === "production";
+  const options = {
     httpOnly: true,
+    secure: isProduction,
+    sameSite: isProduction ? "none" : "lax",
     expires: new Date(0),
-  });
-  res.cookie("refreshToken", "", {
-    httpOnly: true,
-    expires: new Date(0),
-  });
+  };
+  res.cookie("accessToken", "", options);
+  res.cookie("refreshToken", "", options);
 };
