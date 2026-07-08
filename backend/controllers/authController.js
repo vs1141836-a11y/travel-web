@@ -30,6 +30,7 @@ export const registerUser = async (req, res, next) => {
 
     res.status(201).json({
       success: true,
+      accessToken,
       user: {
         _id: user._id,
         name: user.name,
@@ -57,6 +58,7 @@ export const loginUser = async (req, res, next) => {
 
       res.json({
         success: true,
+        accessToken,
         user: {
           _id: user._id,
           name: user.name,
@@ -99,6 +101,7 @@ export const refreshUser = async (req, res, next) => {
 
     res.json({
       success: true,
+      accessToken,
       user: {
         _id: user._id,
         name: user.name,
@@ -118,6 +121,24 @@ export const logoutUser = async (req, res, next) => {
   try {
     clearTokenCookies(res);
     res.json({ success: true, message: "Logged out successfully" });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Get current user profile using headers
+// @route   GET /api/auth/me
+// @access  Private
+export const getMe = async (req, res, next) => {
+  try {
+    res.json({
+      success: true,
+      user: {
+        _id: req.user._id,
+        name: req.user.name,
+        email: req.user.email,
+      }
+    });
   } catch (error) {
     next(error);
   }

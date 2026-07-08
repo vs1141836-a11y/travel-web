@@ -7,17 +7,23 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Check if user session is valid on mount
+  // Check if user session is valid on mount using LocalStorage token
   useEffect(() => {
     const checkAuthSession = async () => {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        setUser(null);
+        setLoading(false);
+        return;
+      }
+
       try {
-        // Trigger a refresh call to check if refreshToken exists and is valid
-        const response = await api.post("/auth/refresh");
+        const response = await api.get("/auth/me");
         if (response.data?.success) {
           setUser(response.data.user);
         }
       } catch (err) {
-        // Safe to ignore on mount, user simply isn't logged in
+        localStorage.removeItem("token");
         setUser(null);
       } finally {
         setLoading(false);
@@ -31,6 +37,9 @@ export const AuthProvider = ({ children }) => {
     try {
       const response = await api.post("/auth/login", { email, password });
       if (response.data?.success) {
+        if (response.data.accessToken) {
+          localStorage.setItem("token", response.data.accessToken);
+        }
         setUser(response.data.user);
         return response.data;
       }
@@ -47,6 +56,9 @@ export const AuthProvider = ({ children }) => {
     try {
       const response = await api.post("/auth/register", { name, email, password });
       if (response.data?.success) {
+        if (response.data.accessToken) {
+          localStorage.setItem("token", response.data.accessToken);
+        }
         setUser(response.data.user);
         return response.data;
       }
@@ -64,6 +76,7 @@ export const AuthProvider = ({ children }) => {
     } catch (err) {
       console.error("Logout request failed:", err);
     } finally {
+      localStorage.removeItem("token");
       setUser(null);
     }
   };

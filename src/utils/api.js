@@ -5,6 +5,18 @@ const api = axios.create({
   withCredentials: true, // Enables transfer of HTTP-only cookies
 });
 
+// Interceptor to inject the authorization token from LocalStorage
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem("token");
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
 // Interceptor to handle expired access tokens and rotate automatically
 api.interceptors.response.use(
   (response) => response,
@@ -21,17 +33,30 @@ api.interceptors.response.use(
       originalRequest._retry = true;
       try {
         console.log("Access token expired. Requesting refresh...");
+        
         // Re-authenticate session via the refresh token cookie
-        await axios.post(
+        const refreshResponse = await axios.post(
           `${api.defaults.baseURL}/auth/refresh`,
           {},
-          { withCredentials: true }
+          { 
+            withCredentials: true,
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("token")}`
+            }
+          }
         );
+        
+        const newToken = refreshResponse.data?.accessToken;
+        if (newToken) {
+          localStorage.setItem("token", newToken);
+        }
+        
         // Resubmit the original request
         return api(originalRequest);
       } catch (refreshError) {
         console.warn("Session expired. User must log in again.");
-        // Forward the error so the auth state is cleaned up
+        // Clear token since it's invalid
+        localStorage.removeItem("token");
         return Promise.reject(refreshError);
       }
     }
