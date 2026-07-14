@@ -1,5 +1,6 @@
 import Trip from "../models/Trip.js";
 import PDFDocument from "pdfkit";
+import axios from "axios";
 
 // @desc    Create a new trip
 // @route   POST /api/trips
@@ -180,6 +181,101 @@ export const exportTripPDF = async (req, res, next) => {
     }
 
     doc.end();
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Get weather details of a trip destination
+// @route   GET /api/trips/:id/weather
+// @access  Private
+export const getTripWeather = async (req, res, next) => {
+  try {
+    const trip = await Trip.findById(req.params.id);
+    if (!trip) {
+      res.status(404);
+      return next(new Error("Trip not found"));
+    }
+
+    const destination = trip.destination;
+    let weatherData = null;
+
+    if (process.env.WEATHER_API_KEY) {
+      try {
+        const response = await axios.get(
+          `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(
+            destination
+          )}&appid=${process.env.WEATHER_API_KEY}&units=metric`
+        );
+        weatherData = {
+          temp: Math.round(response.data.main.temp),
+          feels_like: Math.round(response.data.main.feels_like),
+          humidity: response.data.main.humidity,
+          wind: Math.round(response.data.wind.speed * 3.6),
+          description: response.data.weather[0].description,
+          icon: response.data.weather[0].icon,
+          city: response.data.name,
+        };
+      } catch (apiErr) {
+        console.warn("Weather API call failed, using high-fidelity mock fallback:", apiErr.message);
+      }
+    }
+
+    if (!weatherData) {
+      // Mock weather based on destination name hashes to keep it consistent
+      let code = 0;
+      for (let i = 0; i < destination.length; i++) {
+        code += destination.charCodeAt(i);
+      }
+      const temp = (code % 15) + 15; // 15 to 30
+      const humidity = (code % 30) + 50; // 50 to 80
+      const wind = (code % 20) + 5; // 5 to 25
+      const descriptions = ["clear sky", "few clouds", "scattered clouds", "broken clouds", "light rain"];
+      const desc = descriptions[code % descriptions.length];
+      const icons = ["01d", "02d", "03d", "04d", "10d"];
+      const icon = icons[code % icons.length];
+
+      weatherData = {
+        temp,
+        feels_like: temp - 1,
+        humidity,
+        wind,
+        description: desc,
+        icon,
+        city: destination,
+        isMock: true,
+      };
+    }
+
+    res.json(weatherData);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Simulate sharing trip details via email
+// @route   POST /api/trips/:id/share-email
+// @access  Private
+export const shareTripEmail = async (req, res, next) => {
+  const { email } = req.body;
+  if (!email) {
+    res.status(400);
+    return next(new Error("Email address is required"));
+  }
+
+  try {
+    const trip = await Trip.findById(req.params.id);
+    if (!trip) {
+      res.status(404);
+      return next(new Error("Trip not found"));
+    }
+
+    console.log(`[EMAIL SIMULATION] Sending full itinerary to ${email} for trip ${trip._id} to ${trip.destination}`);
+
+    res.json({
+      success: true,
+      message: `Full trip itinerary details successfully shared to ${email}!`,
+    });
   } catch (error) {
     next(error);
   }

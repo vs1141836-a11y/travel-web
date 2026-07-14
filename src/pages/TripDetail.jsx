@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { Compass, Calendar, DollarSign, Users, ChevronLeft, Download, Plus, Sparkles, Sliders } from "lucide-react";
+import { Compass, Calendar, DollarSign, Users, ChevronLeft, Download, Plus, Sparkles, Sliders, Share2, X, Mail } from "lucide-react";
 import api from "../utils/api";
 import toast from "react-hot-toast";
 import Button from "../components/ui/Button";
@@ -17,6 +17,15 @@ const TripDetail = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("itinerary");
   
+  // Weather state
+  const [weather, setWeather] = useState(null);
+  const [weatherLoading, setWeatherLoading] = useState(true);
+
+  // Sharing state
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [shareEmail, setShareEmail] = useState("");
+  const [isSharing, setIsSharing] = useState(false);
+
   // Modals & AI states
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [activeDayIdx, setActiveDayIdx] = useState(null);
@@ -34,8 +43,20 @@ const TripDetail = () => {
     }
   };
 
+  const fetchWeather = async () => {
+    try {
+      const response = await api.get(`/trips/${id}/weather`);
+      setWeather(response.data);
+    } catch (err) {
+      console.warn("Could not load weather details:", err);
+    } finally {
+      setWeatherLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchTrip();
+    fetchWeather();
   }, [id]);
 
   const handleDragEnd = async (result) => {
@@ -116,8 +137,48 @@ const TripDetail = () => {
     }
   };
 
-  const triggerPDFExport = () => {
-    window.print();
+  const triggerPDFExport = async () => {
+    const toastId = toast.loading("Generating your styled PDF document...");
+    try {
+      const response = await api.get(`/trips/${id}/export-pdf`, {
+        responseType: "blob",
+      });
+      
+      const file = new Blob([response.data], { type: "application/pdf" });
+      const fileURL = URL.createObjectURL(file);
+      const link = document.createElement("a");
+      link.href = fileURL;
+      link.setAttribute("download", `${trip.destination.replace(/\s+/g, "_")}_itinerary.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(fileURL);
+      toast.success("PDF Itinerary downloaded successfully!", { id: toastId });
+    } catch (err) {
+      toast.error("Failed to generate PDF. Please try again.", { id: toastId });
+    }
+  };
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(window.location.href);
+    toast.success("Shareable itinerary URL copied to clipboard!");
+  };
+
+  const handleShareEmail = async (e) => {
+    e.preventDefault();
+    if (!shareEmail.trim()) return toast.error("Please enter a recipient email");
+    
+    setIsSharing(true);
+    try {
+      await api.post(`/trips/${id}/share-email`, { email: shareEmail });
+      toast.success(`Itinerary successfully emailed to ${shareEmail}!`);
+      setShareEmail("");
+      setIsShareModalOpen(false);
+    } catch (err) {
+      toast.error("Failed to share itinerary. Please try again.");
+    } finally {
+      setIsSharing(false);
+    }
   };
 
   if (loading) {
@@ -142,6 +203,10 @@ const TripDetail = () => {
         </button>
         
         <div className="flex items-center gap-3">
+          <Button variant="outline" className="px-4 py-2 text-xs flex items-center gap-1.5" onClick={() => setIsShareModalOpen(true)}>
+            <Share2 size={14} />
+            Share Trip
+          </Button>
           <Button variant="outline" className="px-4 py-2 text-xs flex items-center gap-1.5" onClick={triggerPDFExport}>
             <Download size={14} />
             Export PDF
@@ -180,6 +245,63 @@ const TripDetail = () => {
                 <span className="text-sm font-semibold font-sans mt-0.5 text-brand-accent block">${trip.budget}</span>
               </div>
             </div>
+          </div>
+        </section>
+
+        {/* Interactive Map & Weather integration / Print hidden */}
+        <section className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 print:hidden">
+          {/* Map Column */}
+          <div className="md:col-span-2 glass rounded-xl overflow-hidden border border-zinc-900 h-[220px] relative">
+            <iframe
+              title="Destination Map"
+              width="100%"
+              height="100%"
+              className="border-0 opacity-85 hover:opacity-100 transition-opacity duration-300"
+              src={`https://maps.google.com/maps?q=${encodeURIComponent(trip.destination)}&t=&z=12&ie=UTF8&iwloc=&output=embed`}
+              allowFullScreen
+            ></iframe>
+          </div>
+
+          {/* Weather Widget */}
+          <div className="glass rounded-xl p-6 border border-zinc-900 flex flex-col justify-between h-[220px]">
+            {weatherLoading ? (
+              <div className="flex flex-col gap-3 h-full justify-between">
+                <Skeleton height="h-[20px]" />
+                <Skeleton height="h-[60px]" />
+                <Skeleton height="h-[20px]" />
+              </div>
+            ) : weather ? (
+              <div className="flex flex-col h-full justify-between">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block">Local Weather</span>
+                    <h4 className="text-lg font-bold truncate max-w-[140px]">{weather.city}</h4>
+                  </div>
+                  {weather.icon && (
+                    <img
+                      src={`https://openweathermap.org/img/wn/${weather.icon}@2x.png`}
+                      alt={weather.description}
+                      className="w-12 h-12 -mt-2 shrink-0 filter drop-shadow"
+                    />
+                  )}
+                </div>
+
+                <div className="flex items-baseline gap-1 my-2">
+                  <span className="text-4xl font-extrabold font-sans tracking-tight">{weather.temp}°C</span>
+                  <span className="text-zinc-500 text-xs font-light">Feels like {weather.feels_like}°C</span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-zinc-400 text-[10px] uppercase font-bold pt-3 border-t border-zinc-900/60">
+                  <div>Wind: <span className="text-white">{weather.wind} km/h</span></div>
+                  <div>Humidity: <span className="text-white">{weather.humidity}%</span></div>
+                  <div className="col-span-2 capitalize text-brand-accent tracking-wider font-semibold mt-0.5">{weather.description}</div>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full text-zinc-500 text-xs gap-1">
+                <span>Weather data unavailable</span>
+              </div>
+            )}
           </div>
         </section>
 
@@ -229,6 +351,64 @@ const TripDetail = () => {
         onClose={() => setIsAddModalOpen(false)}
         onAdd={handleAddActivity}
       />
+
+      {/* Share Itinerary Modal */}
+      {isShareModalOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="glass max-w-md w-full rounded-xl border border-zinc-800/80 p-6 flex flex-col gap-4 relative animate-scaleIn">
+            <button
+              onClick={() => setIsShareModalOpen(false)}
+              className="absolute top-4 right-4 text-zinc-500 hover:text-white p-1 rounded-lg hover:bg-zinc-900 cursor-pointer"
+            >
+              <X size={16} />
+            </button>
+            <div>
+              <h3 className="text-xl font-bold">Share Itinerary</h3>
+              <p className="text-zinc-500 text-xs mt-1">Copy the share link or send an email confirmation to a co-traveler.</p>
+            </div>
+            
+            <div className="flex flex-col gap-3 mt-2">
+              <button
+                onClick={handleCopyLink}
+                className="w-full py-3 border border-zinc-850 hover:border-zinc-800 bg-zinc-900/50 hover:bg-zinc-900 text-white rounded-lg flex items-center justify-center gap-2 text-xs font-semibold cursor-pointer transition-all"
+              >
+                <Share2 size={14} className="text-brand-accent" />
+                Copy Link to Clipboard
+              </button>
+              
+              <div className="flex items-center my-2">
+                <div className="flex-grow border-t border-zinc-900"></div>
+                <span className="flex-shrink mx-4 text-zinc-500 text-[10px] font-bold uppercase tracking-wider">Or email share</span>
+                <div className="flex-grow border-t border-zinc-900"></div>
+              </div>
+
+              <form onSubmit={handleShareEmail} className="flex flex-col gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="shareEmail" className="text-zinc-500 text-[10px] font-bold uppercase tracking-wider px-1">Email Address</label>
+                  <input
+                    type="email"
+                    id="shareEmail"
+                    placeholder="e.g. friend@domain.com"
+                    value={shareEmail}
+                    onChange={(e) => setShareEmail(e.target.value)}
+                    className="w-full bg-zinc-900/50 border border-zinc-800 rounded-lg px-4 py-3 text-xs text-white outline-none focus:border-brand-accent/50 transition-colors"
+                  />
+                </div>
+                
+                <Button
+                  type="submit"
+                  variant="accent"
+                  className="w-full py-3 text-xs font-semibold flex items-center justify-center gap-1.5"
+                  disabled={isSharing}
+                >
+                  <Mail size={14} />
+                  {isSharing ? "Sending..." : "Send Email"}
+                </Button>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

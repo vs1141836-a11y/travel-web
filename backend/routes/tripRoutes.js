@@ -8,6 +8,8 @@ import {
   updateTrip,
   deleteTrip,
   exportTripPDF,
+  getTripWeather,
+  shareTripEmail
 } from "../controllers/tripController.js";
 import { generateItinerary, regenerateDay } from "../controllers/aiController.js";
 import { validate } from "../middleware/validationMiddleware.js";
@@ -64,5 +66,7 @@ router
 router.post("/:id/generate-itinerary", protect, generateItinerary);
 router.post("/:id/regenerate-day/:dayIndex", protect, regenerateDay);
 router.get("/:id/export-pdf", protect, exportTripPDF);
+router.get("/:id/weather", protect, getTripWeather);
+router.post("/:id/share-email", protect, shareTripEmail);
 
 export default router;
