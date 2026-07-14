@@ -1,55 +1,82 @@
-# TripCraft AI — Premium Personalized Travel Planner
+🌍 Travel AI
 
-TripCraft AI is a premium, agency-quality, AI-powered travel planner built on the MERN stack. It features a highly interactive, animated, scroll-driven user interface inspired by premium SaaS landing pages (like Stripe, Linear, or Framer).
+An AI-powered full-stack travel planning web application that generates personalized travel itineraries based on user preferences. The platform helps users discover destinations and create customized travel plans through an intuitive, responsive interface.
 
-Users enter a destination, dates, budget, travelers, and interests, and the AI generates a bespoke day-by-day itinerary with activities, timings, category tags, and estimated costs. Users can manage budgets, drag-and-drop activities between days, add manual items, export to PDF, and regenerate days using AI.
+🚀 Live Demo
 
----
+https://travel-web-flax-eta.vercel.app/
 
-## 🛠️ Tech Stack & Credits
+✨ Features
 
-### Frontend (Client-side)
-- **Core**: React (Vite) + React Router v7
-- **Styling**: Tailwind CSS v3
-- **Animations**: GSAP + ScrollTrigger, Framer Motion, Lenis
-- **Drag & Drop**: @hello-pangea/dnd
-- **Charts**: Recharts
-- **Forms & API**: React Hook Form, Zod, Axios, React Hot Toast
+* AI-generated personalized travel itineraries
+* Responsive and modern user interface
+* Destination and trip planning
+* Dynamic data management
+* Fast and interactive user experience
+* Full-stack architecture
+* Secure backend API integration
 
-### Backend (Server-side)
-- **Server**: Node.js + Express
-- **Database**: MongoDB + Mongoose
-- **Authentication**: JWT + bcryptjs
-- **AI**: OpenAI GPT-4o-mini
+🛠 Tech Stack
 
----
+Frontend
 
-## ⚙️ Installation
+* Next.js
+* React.js
+* JavaScript
+* HTML5
+* CSS3
+* Tailwind CSS
 
-### Backend
+Backend
 
-```bash
-cd backend
-npm install
-npm run dev
-```
+* Node.js
+* Express.js
 
-### Frontend
+Database
 
-```bash
-cd frontend
-npm install
-npm run dev
-```
+* MongoDB
 
----
+Tools
 
-## 🚀 Features
+* Git
+* GitHub
+* Vercel
 
-- AI-generated travel itineraries
-- Budget tracking
-- Drag-and-drop itinerary planner
-- Authentication with JWT
-- Export itinerary to PDF
-- Modern animated UI
-- Responsive design
+📂 Project Structure
+
+travel-ai/
+│
+├── frontend/
+├── backend/
+├── public/
+├── components/
+├── pages/
+├── api/
+└── README.md
+
+⚙️ Installation
+
+1. Clone the repository.
+2. Install dependencies using npm install.
+3. Create a .env file and add the required environment variables.
+4. Start the development server using npm run dev.
+5. Open the application in your browser.
+
+🎯 Future Enhancements
+
+* Google Authentication
+* Saved Trips
+* Trip History Dashboard
+* Budget Estimation
+* Interactive Maps
+* Weather Integration
+* Trip Sharing
+* Email Notifications
+
+👨‍💻 Author
+
+Vijay Kumar
+
+Aspiring Full-Stack Software Developer passionate about building scalable, user-friendly web applications using modern technologies.
+
+If you found this project interesting, feel free to star the repository.
