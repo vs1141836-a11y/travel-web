@@ -5,30 +5,30 @@ import axios from "axios";
 const detectCountryCurrency = (destination) => {
   const dest = destination.toLowerCase().trim();
   if (dest.includes("india") || dest.includes("delhi") || dest.includes("kedarnath") || dest.includes("haridwar") || dest.includes("sonprayag") || dest.includes("vizag") || dest.includes("odisha") || dest.includes("kerala") || dest.includes("tamil nadu") || dest.includes("hyderabad") || dest.includes("goa") || dest.includes("ladakh") || dest.includes("rajasthan")) {
-    return { country: "India", code: "INR", symbol: "₹" };
+    return { country: "India", code: "INR", symbol: "₹", fallbackRate: 83.5 };
   }
   if (dest.includes("japan") || dest.includes("tokyo") || dest.includes("kyoto") || dest.includes("osaka")) {
-    return { country: "Japan", code: "JPY", symbol: "¥" };
+    return { country: "Japan", code: "JPY", symbol: "¥", fallbackRate: 155.0 };
   }
   if (dest.includes("united kingdom") || dest.includes("london") || dest.includes("england") || dest.includes("scotland") || dest.includes(" uk ")) {
-    return { country: "United Kingdom", code: "GBP", symbol: "£" };
+    return { country: "United Kingdom", code: "GBP", symbol: "£", fallbackRate: 0.78 };
   }
   if (dest.includes("united arab emirates") || dest.includes("dubai") || dest.includes("abu dhabi") || dest.includes("emirates")) {
-    return { country: "United Arab Emirates", code: "AED", symbol: "AED" };
+    return { country: "United Arab Emirates", code: "AED", symbol: "AED", fallbackRate: 3.67 };
   }
   if (dest.includes("australia") || dest.includes("sydney") || dest.includes("melbourne") || dest.includes("brisbane")) {
-    return { country: "Australia", code: "AUD", symbol: "A$" };
+    return { country: "Australia", code: "AUD", symbol: "A$", fallbackRate: 1.50 };
   }
   if (dest.includes("europe") || dest.includes("france") || dest.includes("paris") || dest.includes("germany") || dest.includes("italy") || dest.includes("spain") || dest.includes("greece") || dest.includes("switzerland") || dest.includes("amsterdam") || dest.includes("netherlands")) {
-    return { country: "Europe", code: "EUR", symbol: "€" };
+    return { country: "Europe", code: "EUR", symbol: "€", fallbackRate: 0.92 };
   }
   if (dest.includes("canada") || dest.includes("toronto") || dest.includes("vancouver") || dest.includes("montreal")) {
-    return { country: "Canada", code: "CAD", symbol: "C$" };
+    return { country: "Canada", code: "CAD", symbol: "C$", fallbackRate: 1.36 };
   }
   if (dest.includes("singapore")) {
-    return { country: "Singapore", code: "SGD", symbol: "S$" };
+    return { country: "Singapore", code: "SGD", symbol: "S$", fallbackRate: 1.34 };
   }
-  return { country: "United States", code: "USD", symbol: "$" };
+  return { country: "United States", code: "USD", symbol: "$", fallbackRate: 1.0 };
 };
 
 // @desc    Create a new trip
@@ -79,11 +79,14 @@ export const getTripById = async (req, res, next) => {
 
     // Self-healing migration check for older trips
     let needsSave = false;
-    if (!trip.currencyCode || !trip.currencySymbol) {
+    if (!trip.currencyCode || !trip.currencySymbol || !trip.localBudget) {
       const currencyInfo = detectCountryCurrency(trip.destination);
+      const rate = currencyInfo.fallbackRate || 1.0;
       trip.country = currencyInfo.country;
       trip.currencyCode = currencyInfo.code;
       trip.currencySymbol = currencyInfo.symbol;
+      trip.exchangeRate = rate;
+      trip.localBudget = Math.round(trip.budget * rate);
       needsSave = true;
     }
     if (!trip.destinationDetails || !trip.destinationDetails.region) {

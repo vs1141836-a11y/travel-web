@@ -13,7 +13,7 @@ const COLORS = {
 };
 
 const BudgetDashboard = ({ trip }) => {
-  const budget = trip.budget || 0;
+  const budget = trip.localBudget || trip.budget || 0;
   const estimated = trip.totalEstimatedCost || 0;
   const percentage = budget > 0 ? Math.min(100, Math.round((estimated / budget) * 100)) : 0;
   const isOver = estimated > budget;

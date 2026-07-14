@@ -167,7 +167,7 @@ const Dashboard = () => {
                       </div>
                       <div className="flex items-center gap-2 text-zinc-400 text-xs">
                         <DollarSign size={13} className="text-zinc-500" />
-                        <span>Est. Cost: <strong className="text-white">${trip.totalEstimatedCost}</strong> / Budget: ${trip.budget}</span>
+                        <span>Est. Cost: <strong className="text-white">{trip.currencySymbol || "$"}{trip.totalEstimatedCost}</strong> / Budget: {trip.currencySymbol || "$"}{trip.localBudget || trip.budget}</span>
                       </div>
                     </div>
                   </div>

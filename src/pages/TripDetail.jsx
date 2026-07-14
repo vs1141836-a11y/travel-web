@@ -254,7 +254,7 @@ const TripDetail = () => {
               </div>
               <div>
                 <span className="text-[10px] text-zinc-500 font-semibold uppercase tracking-wider block">Limit Budget</span>
-                <span className="text-sm font-semibold font-sans mt-0.5 text-brand-accent block">{trip.currencySymbol || "$"}{trip.budget}</span>
+                <span className="text-sm font-semibold font-sans mt-0.5 text-brand-accent block">{trip.currencySymbol || "$"}{trip.localBudget || trip.budget}</span>
               </div>
             </div>
           </div>
