@@ -2,6 +2,35 @@ import Trip from "../models/Trip.js";
 import PDFDocument from "pdfkit";
 import axios from "axios";
 
+const detectCountryCurrency = (destination) => {
+  const dest = destination.toLowerCase().trim();
+  if (dest.includes("india") || dest.includes("delhi") || dest.includes("kedarnath") || dest.includes("haridwar") || dest.includes("sonprayag") || dest.includes("vizag") || dest.includes("odisha") || dest.includes("kerala") || dest.includes("tamil nadu") || dest.includes("hyderabad") || dest.includes("goa") || dest.includes("ladakh") || dest.includes("rajasthan")) {
+    return { country: "India", code: "INR", symbol: "₹" };
+  }
+  if (dest.includes("japan") || dest.includes("tokyo") || dest.includes("kyoto") || dest.includes("osaka")) {
+    return { country: "Japan", code: "JPY", symbol: "¥" };
+  }
+  if (dest.includes("united kingdom") || dest.includes("london") || dest.includes("england") || dest.includes("scotland") || dest.includes(" uk ")) {
+    return { country: "United Kingdom", code: "GBP", symbol: "£" };
+  }
+  if (dest.includes("united arab emirates") || dest.includes("dubai") || dest.includes("abu dhabi") || dest.includes("emirates")) {
+    return { country: "United Arab Emirates", code: "AED", symbol: "AED" };
+  }
+  if (dest.includes("australia") || dest.includes("sydney") || dest.includes("melbourne") || dest.includes("brisbane")) {
+    return { country: "Australia", code: "AUD", symbol: "A$" };
+  }
+  if (dest.includes("europe") || dest.includes("france") || dest.includes("paris") || dest.includes("germany") || dest.includes("italy") || dest.includes("spain") || dest.includes("greece") || dest.includes("switzerland") || dest.includes("amsterdam") || dest.includes("netherlands")) {
+    return { country: "Europe", code: "EUR", symbol: "€" };
+  }
+  if (dest.includes("canada") || dest.includes("toronto") || dest.includes("vancouver") || dest.includes("montreal")) {
+    return { country: "Canada", code: "CAD", symbol: "C$" };
+  }
+  if (dest.includes("singapore")) {
+    return { country: "Singapore", code: "SGD", symbol: "S$" };
+  }
+  return { country: "United States", code: "USD", symbol: "$" };
+};
+
 // @desc    Create a new trip
 // @route   POST /api/trips
 // @access  Private
@@ -46,6 +75,59 @@ export const getTripById = async (req, res, next) => {
     if (trip.userId.toString() !== req.user._id.toString()) {
       res.status(403);
       return next(new Error("Not authorized to access this trip"));
+    }
+
+    // Self-healing migration check for older trips
+    let needsSave = false;
+    if (!trip.currencyCode || !trip.currencySymbol) {
+      const currencyInfo = detectCountryCurrency(trip.destination);
+      trip.country = currencyInfo.country;
+      trip.currencyCode = currencyInfo.code;
+      trip.currencySymbol = currencyInfo.symbol;
+      needsSave = true;
+    }
+    if (!trip.destinationDetails || !trip.destinationDetails.region) {
+      let latitude = 0;
+      let longitude = 0;
+      let region = "Province";
+      const destLower = trip.destination.toLowerCase();
+      if (destLower.includes("delhi")) { latitude = 28.6139; longitude = 77.2090; region = "NCR"; }
+      else if (destLower.includes("kedarnath")) { latitude = 30.7346; longitude = 79.0669; region = "Uttarakhand"; }
+      else if (destLower.includes("haridwar")) { latitude = 29.9457; longitude = 78.1642; region = "Uttarakhand"; }
+      else if (destLower.includes("vizag")) { latitude = 17.6868; longitude = 83.2185; region = "Andhra Pradesh"; }
+      else if (destLower.includes("paris")) { latitude = 48.8566; longitude = 2.3522; region = "Ile-de-France"; }
+      else if (destLower.includes("tokyo")) { latitude = 35.6762; longitude = 139.6503; region = "Kanto"; }
+      else if (destLower.includes("london")) { latitude = 51.5074; longitude = -0.1278; region = "Greater London"; }
+      
+      trip.destinationDetails = {
+        region,
+        latitude,
+        longitude,
+        popularAttractions: ["Scenic spots", "Local center"],
+        imageUrl: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=600&q=80"
+      };
+      needsSave = true;
+    }
+
+    if (trip.days && trip.days.length > 0) {
+      trip.days.forEach((day) => {
+        if (day.activities && day.activities.length > 0) {
+          day.activities.forEach((act, actIdx) => {
+            if (!act.mapsLink) {
+              act.mapsLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(act.title + " " + trip.destination)}`;
+              needsSave = true;
+            }
+            if (!act.travelTime) {
+              act.travelTime = actIdx === 0 ? "Check-in arrival" : "15-20 mins transit";
+              needsSave = true;
+            }
+          });
+        }
+      });
+    }
+
+    if (needsSave) {
+      await trip.save();
     }
 
     res.json(trip);
