@@ -217,17 +217,29 @@ const TripDetail = () => {
       {/* Main Container */}
       <main className="max-w-6xl w-full mx-auto px-6 mt-10 print:mt-0 print:px-0">
         {/* Info Grid Card */}
-        <section className="glass rounded-xl p-8 border border-zinc-900 mb-8 print:border-none print:bg-transparent print:p-0 print:mb-12">
-          <div className="flex flex-col md:flex-row justify-between items-start gap-4">
+        <section 
+          className="relative rounded-xl overflow-hidden border border-zinc-900 mb-8 print:border-none print:bg-transparent print:p-0 print:mb-12 min-h-[160px] flex items-end"
+          style={{
+            backgroundImage: trip.destinationDetails?.imageUrl ? `linear-gradient(to top, rgba(9,9,11,0.95), rgba(9,9,11,0.5)), url(${trip.destinationDetails.imageUrl})` : 'none',
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+          }}
+        >
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 p-8 w-full">
             <div>
-              <span className="text-brand-accent text-xs font-bold uppercase tracking-widest flex items-center gap-1">
-                <Compass size={12} />
-                Bespoke Route
+              <span className="text-brand-accent text-[10px] font-bold uppercase tracking-widest flex items-center gap-1">
+                <Compass size={11} />
+                Bespoke Route {trip.country ? `• ${trip.country}` : ""}
               </span>
-              <h1 className="text-4xl font-semibold mt-1 print:text-3xl">{trip.destination}</h1>
+              <h1 className="text-4xl font-extrabold mt-1 text-white tracking-tight drop-shadow print:text-3xl">{trip.destination}</h1>
+              {trip.destinationDetails?.region && (
+                <span className="text-zinc-400 text-xs mt-1 block font-light">
+                  {trip.destinationDetails.region} {trip.destinationDetails?.latitude ? `• Lat: ${trip.destinationDetails.latitude.toFixed(4)}, Long: ${trip.destinationDetails.longitude.toFixed(4)}` : ""}
+                </span>
+              )}
             </div>
             
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 w-full md:w-auto mt-4 md:mt-0 bg-zinc-950/40 p-4 rounded-xl border border-zinc-900/60 print:grid-cols-4 print:border-none print:p-0 print:bg-transparent">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 w-full md:w-auto mt-4 md:mt-0 bg-zinc-950/80 p-4 rounded-xl border border-zinc-900/60 backdrop-blur-sm print:grid-cols-4 print:border-none print:p-0 print:bg-transparent">
               <div>
                 <span className="text-[10px] text-zinc-500 font-semibold uppercase tracking-wider block">Start Date</span>
                 <span className="text-sm font-semibold font-sans mt-0.5 block">{trip.startDate}</span>
@@ -242,7 +254,7 @@ const TripDetail = () => {
               </div>
               <div>
                 <span className="text-[10px] text-zinc-500 font-semibold uppercase tracking-wider block">Limit Budget</span>
-                <span className="text-sm font-semibold font-sans mt-0.5 text-brand-accent block">${trip.budget}</span>
+                <span className="text-sm font-semibold font-sans mt-0.5 text-brand-accent block">{trip.currencySymbol || "$"}{trip.budget}</span>
               </div>
             </div>
           </div>
@@ -263,7 +275,7 @@ const TripDetail = () => {
           </div>
 
           {/* Weather Widget */}
-          <div className="glass rounded-xl p-6 border border-zinc-900 flex flex-col justify-between h-[220px]">
+          <div className="glass rounded-xl p-5 border border-zinc-900 flex flex-col justify-between min-h-[220px]">
             {weatherLoading ? (
               <div className="flex flex-col gap-3 h-full justify-between">
                 <Skeleton height="h-[20px]" />
@@ -271,30 +283,41 @@ const TripDetail = () => {
                 <Skeleton height="h-[20px]" />
               </div>
             ) : weather ? (
-              <div className="flex flex-col h-full justify-between">
+              <div className="flex flex-col h-full gap-4">
                 <div className="flex justify-between items-start">
                   <div>
-                    <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block">Local Weather</span>
-                    <h4 className="text-lg font-bold truncate max-w-[140px]">{weather.city}</h4>
+                    <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block">Forecast & Recommendation</span>
+                    <h4 className="text-sm font-bold truncate max-w-[140px]">{weather.current?.city || weather.city || trip.destination}</h4>
                   </div>
-                  {weather.icon && (
+                  {(weather.current?.icon || weather.icon) && (
                     <img
-                      src={`https://openweathermap.org/img/wn/${weather.icon}@2x.png`}
-                      alt={weather.description}
-                      className="w-12 h-12 -mt-2 shrink-0 filter drop-shadow"
+                      src={`https://openweathermap.org/img/wn/${weather.current?.icon || weather.icon}@2x.png`}
+                      alt="current weather"
+                      className="w-10 h-10 -mt-2 shrink-0 filter drop-shadow"
                     />
                   )}
                 </div>
 
-                <div className="flex items-baseline gap-1 my-2">
-                  <span className="text-4xl font-extrabold font-sans tracking-tight">{weather.temp}°C</span>
-                  <span className="text-zinc-500 text-xs font-light">Feels like {weather.feels_like}°C</span>
-                </div>
+                {/* 3-day forecast line */}
+                {weather.forecast && weather.forecast.length > 0 && (
+                  <div className="grid grid-cols-3 gap-2 py-2 border-t border-b border-zinc-900/60">
+                    {weather.forecast.map((f, idx) => (
+                      <div key={idx} className="flex flex-col items-center text-center">
+                        <span className="text-[8px] text-zinc-500 font-bold uppercase">{f.date}</span>
+                        <img 
+                          src={`https://openweathermap.org/img/wn/${f.icon}.png`} 
+                          alt={f.description} 
+                          className="w-6 h-6 my-0.5 filter drop-shadow" 
+                        />
+                        <span className="text-[10px] font-bold font-sans">{f.temp}°C</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
-                <div className="grid grid-cols-2 gap-2 text-zinc-400 text-[10px] uppercase font-bold pt-3 border-t border-zinc-900/60">
-                  <div>Wind: <span className="text-white">{weather.wind} km/h</span></div>
-                  <div>Humidity: <span className="text-white">{weather.humidity}%</span></div>
-                  <div className="col-span-2 capitalize text-brand-accent tracking-wider font-semibold mt-0.5">{weather.description}</div>
+                {/* Weather Recommendation */}
+                <div className="text-[10px] text-zinc-400 font-medium leading-relaxed bg-zinc-950/40 p-2.5 rounded-lg border border-zinc-900/40">
+                  {weather.recommendation || "Enjoy your day exploring the local area!"}
                 </div>
               </div>
             ) : (
@@ -335,6 +358,7 @@ const TripDetail = () => {
               }}
               onRegenerateDay={handleRegenerateDay}
               regeneratingDayIndex={regeneratingDayIdx}
+              currencySymbol={trip.currencySymbol}
             />
           )}
 

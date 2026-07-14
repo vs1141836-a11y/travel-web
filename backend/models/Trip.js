@@ -11,6 +11,8 @@ const activitySchema = new mongoose.Schema({
     required: true 
   },
   duration: { type: String, default: "" },
+  mapsLink: { type: String, default: "" },
+  travelTime: { type: String, default: "" },
 });
 
 const daySchema = new mongoose.Schema({
@@ -38,6 +40,16 @@ const tripSchema = new mongoose.Schema(
     },
     days: { type: [daySchema], default: [] },
     totalEstimatedCost: { type: Number, default: 0 },
+    country: { type: String, default: "" },
+    currencyCode: { type: String, default: "USD" },
+    currencySymbol: { type: String, default: "$" },
+    destinationDetails: {
+      region: { type: String, default: "" },
+      latitude: { type: Number, default: 0 },
+      longitude: { type: Number, default: 0 },
+      popularAttractions: { type: [String], default: [] },
+      imageUrl: { type: String, default: "" }
+    },
   },
   { timestamps: true }
 );

@@ -1,6 +1,6 @@
 import React from "react";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
-import { Trash2, Plus, Sparkles, RefreshCw } from "lucide-react";
+import { Trash2, Plus, Sparkles, RefreshCw, MapPin, Navigation } from "lucide-react";
 import Card from "../ui/Card";
 import Skeleton from "../ui/Skeleton";
 
@@ -17,7 +17,8 @@ const ItineraryPlanner = ({
   onDeleteActivity, 
   onOpenAddModal, 
   onRegenerateDay,
-  regeneratingDayIndex 
+  regeneratingDayIndex,
+  currencySymbol = "$"
 }) => {
   return (
     <DragDropContext onDragEnd={onDragEnd}>
@@ -60,9 +61,9 @@ const ItineraryPlanner = ({
                 <Droppable droppableId={dayIdx.toString()}>
                   {(provided) => (
                     <div
-                      ref={provided.innerRef}
-                      {...provided.droppableProps}
-                      className="flex flex-col gap-3 flex-1 overflow-y-auto pr-1 max-h-[550px] min-h-[250px]"
+                       ref={provided.innerRef}
+                       {...provided.droppableProps}
+                       className="flex flex-col gap-3 flex-1 overflow-y-auto pr-1 max-h-[550px] min-h-[250px]"
                     >
                       {day.activities.length === 0 ? (
                         <div className="flex-1 flex flex-col items-center justify-center text-zinc-600 text-xs py-8 border border-dashed border-zinc-900 rounded-lg">
@@ -82,6 +83,12 @@ const ItineraryPlanner = ({
                                 {...dragProvided.dragHandleProps}
                                 className="group"
                               >
+                                {actIdx > 0 && activity.travelTime && activity.travelTime !== "Check-in arrival" && (
+                                  <div className="flex items-center gap-1.5 text-[9px] text-zinc-500 font-medium pl-3 py-1 my-0.5 border-l border-zinc-800">
+                                    <Navigation size={8} className="text-zinc-600 transform rotate-45" />
+                                    <span>{activity.travelTime}</span>
+                                  </div>
+                                )}
                                 <div className="bg-zinc-900/60 hover:bg-zinc-900 border border-zinc-900 hover:border-zinc-800/80 rounded-lg p-3.5 transition-all relative flex flex-col gap-2">
                                   {/* Delete Hover Reveal */}
                                   <button
@@ -111,8 +118,24 @@ const ItineraryPlanner = ({
                                     <span className={`px-2 py-0.5 rounded text-[8px] ${CATEGORY_COLORS[activity.category]}`}>
                                       {activity.category}
                                     </span>
-                                    {activity.duration && <span>{activity.duration}</span>}
-                                    <span>${activity.estimatedCost}</span>
+                                    
+                                    <div className="flex items-center gap-2">
+                                      {activity.mapsLink && (
+                                        <a
+                                          href={activity.mapsLink}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="text-zinc-500 hover:text-brand-accent flex items-center gap-0.5 lowercase font-medium"
+                                          title="Search on Google Maps"
+                                        >
+                                          <MapPin size={9} className="text-brand-accent/70" />
+                                          map
+                                        </a>
+                                      )}
+                                      {activity.duration && <span>{activity.duration}</span>}
+                                    </div>
+                                    
+                                    <span>{currencySymbol}{activity.estimatedCost}</span>
                                   </div>
                                 </div>
                               </div>

@@ -1,6 +1,49 @@
 import axios from "axios";
 import Trip from "../models/Trip.js";
 
+const detectCountryCurrency = (destination) => {
+  const dest = destination.toLowerCase().trim();
+  
+  if (dest.includes("india") || dest.includes("delhi") || dest.includes("kedarnath") || dest.includes("haridwar") || dest.includes("sonprayag") || dest.includes("vizag") || dest.includes("odisha") || dest.includes("kerala") || dest.includes("tamil nadu") || dest.includes("hyderabad") || dest.includes("goa") || dest.includes("ladakh") || dest.includes("rajasthan") || dest.includes("inr")) {
+    return { country: "India", code: "INR", symbol: "₹", fallbackRate: 83.5 };
+  }
+  if (dest.includes("japan") || dest.includes("tokyo") || dest.includes("kyoto") || dest.includes("osaka") || dest.includes("jpy")) {
+    return { country: "Japan", code: "JPY", symbol: "¥", fallbackRate: 155.0 };
+  }
+  if (dest.includes("united kingdom") || dest.includes("london") || dest.includes("england") || dest.includes("scotland") || dest.includes("gbp") || dest.includes(" uk ")) {
+    return { country: "United Kingdom", code: "GBP", symbol: "£", fallbackRate: 0.78 };
+  }
+  if (dest.includes("united arab emirates") || dest.includes("dubai") || dest.includes("abu dhabi") || dest.includes("emirates") || dest.includes("aed") || dest.includes(" uae")) {
+    return { country: "United Arab Emirates", code: "AED", symbol: "AED", fallbackRate: 3.67 };
+  }
+  if (dest.includes("australia") || dest.includes("sydney") || dest.includes("melbourne") || dest.includes("brisbane") || dest.includes("aud")) {
+    return { country: "Australia", code: "AUD", symbol: "A$", fallbackRate: 1.50 };
+  }
+  if (dest.includes("europe") || dest.includes("france") || dest.includes("paris") || dest.includes("germany") || dest.includes("italy") || dest.includes("spain") || dest.includes("greece") || dest.includes("switzerland") || dest.includes("amsterdam") || dest.includes("netherlands") || dest.includes("eur")) {
+    return { country: "Europe", code: "EUR", symbol: "€", fallbackRate: 0.92 };
+  }
+  if (dest.includes("canada") || dest.includes("toronto") || dest.includes("vancouver") || dest.includes("montreal") || dest.includes("cad")) {
+    return { country: "Canada", code: "CAD", symbol: "C$", fallbackRate: 1.36 };
+  }
+  if (dest.includes("singapore") || dest.includes("sgd")) {
+    return { country: "Singapore", code: "SGD", symbol: "S$", fallbackRate: 1.34 };
+  }
+  
+  return { country: "United States", code: "USD", symbol: "$", fallbackRate: 1.0 };
+};
+
+const getExchangeRate = async (targetCode, fallbackRate) => {
+  try {
+    const response = await axios.get("https://open.er-api.com/v6/latest/USD");
+    if (response.data && response.data.rates && response.data.rates[targetCode]) {
+      return response.data.rates[targetCode];
+    }
+  } catch (err) {
+    console.warn("Failed to fetch live exchange rates, using local fallback rate:", err.message);
+  }
+  return fallbackRate;
+};
+
 // Helper to sanitize activities and coerce schema compliance
 const sanitizeActivities = (activitiesArray) => {
   if (!Array.isArray(activitiesArray)) return [];
@@ -12,6 +55,8 @@ const sanitizeActivities = (activitiesArray) => {
     const title = typeof act.title === "string" ? act.title : "Explore Spot";
     const description = typeof act.description === "string" ? act.description : "";
     const duration = typeof act.duration === "string" ? act.duration : "2h";
+    const mapsLink = typeof act.mapsLink === "string" ? act.mapsLink : "";
+    const travelTime = typeof act.travelTime === "string" ? act.travelTime : "";
 
     // Coerce cost safely
     let estimatedCost = 0;
@@ -41,7 +86,9 @@ const sanitizeActivities = (activitiesArray) => {
       description,
       estimatedCost,
       category,
-      duration
+      duration,
+      mapsLink,
+      travelTime
     });
   }
   return sanitized;
@@ -63,7 +110,20 @@ const sanitizeAndValidateItinerary = (data) => {
   }
 
   if (sanitizedDays.length === 0) return null;
-  return { days: sanitizedDays };
+  
+  return {
+    country: typeof data.country === "string" ? data.country : "",
+    currencyCode: typeof data.currencyCode === "string" ? data.currencyCode : "USD",
+    currencySymbol: typeof data.currencySymbol === "string" ? data.currencySymbol : "$",
+    destinationDetails: {
+      region: data.destinationDetails?.region || "",
+      latitude: Number(data.destinationDetails?.latitude) || 0,
+      longitude: Number(data.destinationDetails?.longitude) || 0,
+      popularAttractions: Array.isArray(data.destinationDetails?.popularAttractions) ? data.destinationDetails.popularAttractions : [],
+      imageUrl: data.destinationDetails?.imageUrl || ""
+    },
+    days: sanitizedDays
+  };
 };
 
 const addDays = (dateStr, days) => {
@@ -72,18 +132,20 @@ const addDays = (dateStr, days) => {
   return date.toISOString().split("T")[0];
 };
 
-const getLocalizedActivities = (destination, dayIndex, dailyBudget) => {
+const getLocalizedActivities = (destination, dayIndex, dailyBudget, exchangeRate = 1.0) => {
   const destLower = destination.toLowerCase();
   const stayCost = Math.round(dailyBudget * 0.4);
   const foodCost1 = Math.round(dailyBudget * 0.15);
   const foodCost2 = Math.round(dailyBudget * 0.2);
   const actCost = Math.round(dailyBudget * 0.25);
 
+  let rawList = [];
+
   // Delhi Fallback
   if (destLower.includes("delhi")) {
-    const list = [
+    rawList = [
       [
-        { time: "09:00 AM", title: "Delhi Airport/Station Transit", description: "Checked in via pre-paid taxi to your hotel in Connaught Place.", estimatedCost: 15, category: "transport", duration: "1.5h" },
+        { time: "09:00 AM", title: "Delhi Airport/Station Transit", description: "Checked in via pre-paid taxi to your hotel in Connaught Place.", estimatedCost: Math.round(15 * exchangeRate), category: "transport", duration: "1.5h" },
         { time: "12:30 PM", title: "Lunch at Karim's (Old Delhi)", description: "Feast on iconic Mughlai mutton korma and tandoori rotis.", estimatedCost: foodCost1, category: "food", duration: "1h" },
         { time: "02:30 PM", title: "Red Fort Exploration", description: "Guided tour through the massive 17th-century sandstone fortress.", estimatedCost: actCost, category: "activity", duration: "3h" },
         { time: "07:30 PM", title: "Stay at The Connaught Hotel", description: "Premium boutique stay in central Delhi.", estimatedCost: stayCost, category: "stay", duration: "12h" }
@@ -91,7 +153,7 @@ const getLocalizedActivities = (destination, dayIndex, dailyBudget) => {
       [
         { time: "09:00 AM", title: "Qutub Minar Complex", description: "Explore the tallest brick minaret in the world and iron pillar.", estimatedCost: actCost, category: "activity", duration: "2h" },
         { time: "01:00 PM", title: "Lunch at Saravana Bhavan", description: "Savor premium South Indian thali and filter coffee in CP.", estimatedCost: foodCost1, category: "food", duration: "1h" },
-        { time: "03:00 PM", title: "Humayun's Tomb Heritage Walk", description: "Stroll around the magnificent precursor to the Taj Mahal.", estimatedCost: 10, category: "activity", duration: "2h" },
+        { time: "03:00 PM", title: "Humayun's Tomb Heritage Walk", description: "Stroll around the magnificent precursor to the Taj Mahal.", estimatedCost: Math.round(10 * exchangeRate), category: "activity", duration: "2h" },
         { time: "07:30 PM", title: "Stay at The Connaught Hotel", description: "Premium boutique stay in central Delhi.", estimatedCost: stayCost, category: "stay", duration: "12h" }
       ],
       [
@@ -100,228 +162,183 @@ const getLocalizedActivities = (destination, dayIndex, dailyBudget) => {
         { time: "03:00 PM", title: "Shopping Walk at Dilli Haat", description: "Explore authentic Indian regional handicrafts and souvenirs.", estimatedCost: foodCost2, category: "activity", duration: "2.5h" },
         { time: "07:30 PM", title: "Stay at The Connaught Hotel", description: "Premium boutique stay in central Delhi.", estimatedCost: stayCost, category: "stay", duration: "12h" }
       ]
-    ];
-    return list[dayIndex % list.length];
+    ][dayIndex % 3];
   }
-
   // Kedarnath Fallback
-  if (destLower.includes("kedarnath")) {
-    const list = [
+  else if (destLower.includes("kedarnath")) {
+    rawList = [
       [
-        { time: "06:00 AM", title: "Sonprayag to Gaurikund Transit", description: "Early morning local shared jeep to the trek starting point.", estimatedCost: 5, category: "transport", duration: "1h" },
+        { time: "06:00 AM", title: "Sonprayag to Gaurikund Transit", description: "Early morning local shared jeep to the trek starting point.", estimatedCost: Math.round(5 * exchangeRate), category: "transport", duration: "1h" },
         { time: "08:00 AM", title: "Kedarnath Trek Initiation", description: "Begin the 16km scenic mountain trail trek (walking/mule/palki).", estimatedCost: actCost, category: "activity", duration: "7h" },
         { time: "04:30 PM", title: "Arrival & GMVN Ashram Check-in", description: "Settle into your cozy mountain cottage near the temple.", estimatedCost: stayCost, category: "stay", duration: "14h" }
       ],
       [
-        { time: "05:00 AM", title: "Kedarnath Temple Darshan", description: "Attend the morning Abhishek puja and explore the holy shrine.", estimatedCost: 10, category: "activity", duration: "3h" },
+        { time: "05:00 AM", title: "Kedarnath Temple Darshan", description: "Attend the morning Abhishek puja and explore the holy shrine.", estimatedCost: Math.round(10 * exchangeRate), category: "activity", duration: "3h" },
         { time: "09:00 AM", title: "Breakfast at Local Bhandara/Mess", description: "Enjoy hot parathas and tea with a view of the Himalayan peaks.", estimatedCost: foodCost1, category: "food", duration: "1h" },
         { time: "11:00 AM", title: "Trek Down to Gaurikund", description: "Begin descending the mountain trail back to Sonprayag.", estimatedCost: 0, category: "activity", duration: "5h" },
         { time: "06:30 PM", title: "Stay at Sonprayag Lodge", description: "Relax at your base lodge after the divine pilgrimage.", estimatedCost: stayCost, category: "stay", duration: "12h" }
       ],
       [
-        { time: "08:00 AM", title: "Bairon Temple Trek", description: "Short uphill hike to Bairon Baba Temple for panoramic valley views.", estimatedCost: 5, category: "activity", duration: "2h" },
+        { time: "08:00 AM", title: "Bairon Temple Trek", description: "Short uphill hike to Bairon Baba Temple for panoramic valley views.", estimatedCost: Math.round(5 * exchangeRate), category: "activity", duration: "2h" },
         { time: "12:00 PM", title: "Lunch at Kedarnath Base Mess", description: "Simple hot vegetarian mountain meal.", estimatedCost: foodCost1, category: "food", duration: "1h" },
         { time: "02:00 PM", title: "Spiritual Meditation Near Shrine", description: "Spend quiet time in the divine, tranquil atmosphere of the valley.", estimatedCost: 0, category: "activity", duration: "3h" },
         { time: "07:30 PM", title: "Stay at GMVN Camp", description: "Cozy tented accommodation with Himalayan views.", estimatedCost: stayCost, category: "stay", duration: "12h" }
       ]
-    ];
-    return list[dayIndex % list.length];
+    ][dayIndex % 3];
   }
-
   // Haridwar Fallback
-  if (destLower.includes("haridwar")) {
-    const list = [
+  else if (destLower.includes("haridwar")) {
+    rawList = [
       [
         { time: "09:00 AM", title: "Check-in at Haridwar Ashram", description: "Settle in at a quiet riverside ashram with Ganges views.", estimatedCost: stayCost, category: "stay", duration: "12h" },
-        { time: "11:30 AM", title: "Mansa Devi Cable Car Ride", description: "Scenic ropeway ride to the hilltop temple overlooking Haridwar.", estimatedCost: 8, category: "activity", duration: "2h" },
+        { time: "11:30 AM", title: "Mansa Devi Cable Car Ride", description: "Scenic ropeway ride to the hilltop temple overlooking Haridwar.", estimatedCost: Math.round(8 * exchangeRate), category: "activity", duration: "2h" },
         { time: "01:30 PM", title: "Lunch at Chotiwala", description: "Iconic traditional thali lunch near the Ganges.", estimatedCost: foodCost1, category: "food", duration: "1.5h" },
-        { time: "06:00 PM", title: "Ganga Aarti at Har Ki Pauri", description: "Attend the world-famous evening oil lamp floating prayer ceremony.", estimatedCost: 5, category: "activity", duration: "1.5h" }
+        { time: "06:00 PM", title: "Ganga Aarti at Har Ki Pauri", description: "Attend the world-famous evening oil lamp floating prayer ceremony.", estimatedCost: Math.round(5 * exchangeRate), category: "activity", duration: "1.5h" }
       ],
       [
-        { time: "09:00 AM", title: "Chandi Devi Hilltop Temple", description: "Take the cable car to Neel Parvat for spectacular panoramic views.", estimatedCost: 8, category: "activity", duration: "2.5h" },
+        { time: "09:00 AM", title: "Chandi Devi Hilltop Temple", description: "Take the cable car to Neel Parvat for spectacular panoramic views.", estimatedCost: Math.round(8 * exchangeRate), category: "activity", duration: "2.5h" },
         { time: "01:00 PM", title: "Street Food Crawl (Kachori & Lassi)", description: "Sample famous Haridwar style breakfast and creamy buttermilk.", estimatedCost: foodCost1, category: "food", duration: "1h" },
         { time: "03:00 PM", title: "Shanti Kunj Ashram Visit", description: "Peaceful walk through the spiritual and scientific research center.", estimatedCost: 0, category: "activity", duration: "2.5h" },
         { time: "07:30 PM", title: "Stay at Haridwar Heritage Hotel", description: "Premium riverside heritage boutique stay.", estimatedCost: stayCost, category: "stay", duration: "12h" }
       ]
-    ];
-    return list[dayIndex % list.length];
+    ][dayIndex % 2];
   }
-
   // Sonprayag Fallback
-  if (destLower.includes("sonprayag")) {
-    const list = [
+  else if (destLower.includes("sonprayag")) {
+    rawList = [
       [
-        { time: "11:00 AM", title: "Transit to Sonprayag Base", description: "Scenic mountain drive from Rishikesh/Dehradun.", estimatedCost: 20, category: "transport", duration: "5h" },
-        { time: "05:00 PM", title: "Explore Sonprayag Valley", description: "Acclimatize to the altitude, walk near the Mandakini river.", estimatedCost: 0, category: "activity", duration: "2h" },
-        { time: "07:30 PM", title: "Stay at Mandakini Valley Lodge", description: "Comfortable local guest house stay.", estimatedCost: stayCost, category: "stay", duration: "12h" }
-      ],
-      [
-        { time: "08:30 AM", title: "Triyuginarayan Temple Excursion", description: "Visit the legendary temple where Lord Shiva and Goddess Parvati married.", estimatedCost: 15, category: "activity", duration: "4h" },
-        { time: "01:30 PM", title: "Local Organic Farm Lunch", description: "Enjoy fresh mountain veggies and local millet breads.", estimatedCost: foodCost1, category: "food", duration: "1.5h" },
-        { time: "04:30 PM", title: "Mandakini River Confluence Walk", description: "Scenic nature stroll tracing the roaring rivers.", estimatedCost: 0, category: "activity", duration: "2.5h" },
-        { time: "07:00 PM", title: "Stay at Mandakini Valley Lodge", description: "Acclimatization lodging with bonfire dinner.", estimatedCost: stayCost, category: "stay", duration: "12h" }
+        { time: "09:00 AM", title: "Check-in base camp hotel", description: "Settle into your riverside room in Sonprayag.", estimatedCost: stayCost, category: "stay", duration: "12h" },
+        { time: "11:00 AM", title: "Mandakini River Ghat Stroll", description: "Experience fresh mountain air next to the rushing river waters.", estimatedCost: 0, category: "activity", duration: "2h" },
+        { time: "01:30 PM", title: "Lunch at Himalayan Cafe", description: "Traditional North Indian hot food.", estimatedCost: foodCost1, category: "food", duration: "1h" },
+        { time: "06:00 PM", title: "Evening Prayer Meet at Sonprayag", description: "Attend local mountain temple rituals.", estimatedCost: 0, category: "activity", duration: "1h" }
       ]
-    ];
-    return list[dayIndex % list.length];
+    ][0];
   }
-
   // Vizag Fallback
-  if (destLower.includes("vizag") || destLower.includes("visakhapatnam")) {
-    const list = [
+  else if (destLower.includes("vizag")) {
+    rawList = [
       [
-        { time: "09:00 AM", title: "Check-in at Beach Road Hotel", description: "Check in at a premium hotel overlooking the Bay of Bengal.", estimatedCost: stayCost, category: "stay", duration: "12h" },
-        { time: "10:30 AM", title: "INS Kursura Submarine Museum", description: "Explore a real decommissioned submarine parked on the beach sand.", estimatedCost: 5, category: "activity", duration: "1.5h" },
-        { time: "01:00 PM", title: "Seafood Lunch at Sea Inn", description: "Enjoy local spicy Andhra fish curry and crab roast.", estimatedCost: foodCost1, category: "food", duration: "1.5h" },
-        { time: "04:30 PM", title: "Kailasagiri Hilltop Park", description: "Ropeway ride to the giant Shiva Parvathi statues with panoramic ocean views.", estimatedCost: 10, category: "activity", duration: "2.5h" }
+        { time: "09:00 AM", title: "INS Kursura Submarine Museum", description: "Tour a decommissioned real Soviet-built submarine on RK Beach.", estimatedCost: Math.round(8 * exchangeRate), category: "activity", duration: "1.5h" },
+        { time: "12:30 PM", title: "Lunch at Sea Inn (Andhra Mess)", description: "Authentic local spicy Andhra fish curry and rice meals.", estimatedCost: foodCost1, category: "food", duration: "1h" },
+        { time: "03:00 PM", title: "Kailasagiri Ropeway Ride", description: "Ascend the hilltop park via cable car for panoramic Bay of Bengal views.", estimatedCost: Math.round(5 * exchangeRate), category: "activity", duration: "3h" },
+        { time: "07:30 PM", title: "Stay at Novotel Varun Beach", description: "Ocean-view luxury stay on the Beach Road.", estimatedCost: stayCost, category: "stay", duration: "12h" }
       ],
       [
-        { time: "07:30 AM", title: "Araku Valley Scenic Train Trip", description: "Beautiful mountain rail journey crossing tunnels and waterfalls.", estimatedCost: 20, category: "transport", duration: "3.5h" },
-        { time: "12:00 PM", title: "Borra Caves Exploration", description: "Explore the deep millions-years-old limestone structures.", estimatedCost: 10, category: "activity", duration: "2.5h" },
-        { time: "02:30 PM", title: "Bamboo Chicken Lunch (Araku)", description: "Sample famous tribal style chicken slow-cooked inside bamboo stalks.", estimatedCost: foodCost1, category: "food", duration: "1h" },
-        { time: "07:30 PM", title: "Stay at Araku Hill Resort", description: "Stay at a cozy mountain eco-resort.", estimatedCost: stayCost, category: "stay", duration: "12h" }
+        { time: "06:00 AM", title: "Araku Valley Train Journey", description: "Scenic rail route crossing 58 tunnels and bridges to the coffee valley.", estimatedCost: Math.round(15 * exchangeRate), category: "transport", duration: "4.5h" },
+        { time: "12:00 PM", title: "Borra Caves Exploration", description: "Guided walk inside millions-of-years old stalactite/stalagmite caves.", estimatedCost: Math.round(10 * exchangeRate), category: "activity", duration: "2.5h" },
+        { time: "02:30 PM", title: "Bamboo Chicken Lunch in Araku", description: "Sample Araku's famous oil-free chicken cooked inside local green bamboo.", estimatedCost: foodCost2, category: "food", duration: "1.5h" },
+        { time: "07:30 PM", title: "Stay at Araku Valley Resort", description: "Charming hill-resort cottage stay.", estimatedCost: stayCost, category: "stay", duration: "12h" }
       ],
       [
-        { time: "09:30 AM", title: "Simhachalam Hill Temple", description: "Visit the ancient 11th-century Lakshmi Narasimha temple.", estimatedCost: 5, category: "activity", duration: "2.5h" },
-        { time: "01:00 PM", title: "Lunch at Local Andhra Mess", description: "Unlimited traditional vegetarian meals served on banana leaf.", estimatedCost: foodCost1, category: "food", duration: "1h" },
-        { time: "03:30 PM", title: "Rishikonda Beach Water Sports", description: "Try speed boating and jet skiing at Vizag's cleanest beach.", estimatedCost: actCost, category: "activity", duration: "3h" },
-        { time: "07:30 PM", title: "Stay at Beach Road Hotel", description: "Premium hotel stay overlooking the ocean.", estimatedCost: stayCost, category: "stay", duration: "12h" }
+        { time: "09:00 AM", title: "Simhachalam Hill Temple Tour", description: "Explore the 11th-century Lakshmi Narasimha temple covered in sandalwood paste.", estimatedCost: Math.round(5 * exchangeRate), category: "activity", duration: "3h" },
+        { time: "01:00 PM", title: "Lunch at Kamat Restaurant", description: "Authentic vegetarian Andhra thali served on banana leaf.", estimatedCost: foodCost1, category: "food", duration: "1h" },
+        { time: "03:30 PM", title: "Rishikonda Beach Water Sports", description: "Enjoy speed-boating and jet-skiing under expert guidance.", estimatedCost: Math.round(15 * exchangeRate), category: "activity", duration: "3h" },
+        { time: "07:30 PM", title: "Stay at Novotel Varun Beach", description: "Ocean-view luxury stay on the Beach Road.", estimatedCost: stayCost, category: "stay", duration: "12h" }
       ]
-    ];
-    return list[dayIndex % list.length];
+    ][dayIndex % 3];
   }
-
   // Odisha Fallback
-  if (destLower.includes("odisha") || destLower.includes("odhisa") || destLower.includes("puri") || destLower.includes("bhubaneswar")) {
-    const list = [
+  else if (destLower.includes("odisha") || destLower.includes("puri") || destLower.includes("bhubaneswar")) {
+    rawList = [
       [
-        { time: "09:00 AM", title: "Konark Sun Temple", description: "Marvel at the UNESCO 13th-century chariot temple architecture.", estimatedCost: actCost, category: "activity", duration: "3h" },
-        { time: "01:00 PM", title: "Odia Thali Lunch", description: "Dalma, Pakhala, and Chhena Poda dessert at a local kitchen.", estimatedCost: foodCost1, category: "food", duration: "1.5h" },
-        { time: "04:00 PM", title: "Puri Golden Beach Stroll", description: "Walk along the clean beaches of Puri, tasting local snacks.", estimatedCost: 5, category: "activity", duration: "2h" },
-        { time: "07:30 PM", title: "Stay at Toshali Sands Beach Resort", description: "Eco-friendly premium resort stay.", estimatedCost: stayCost, category: "stay", duration: "12h" }
-      ],
-      [
-        { time: "08:00 AM", title: "Jagannath Temple Darshan", description: "Divine morning temple visit in Puri, learning local legends.", estimatedCost: 0, category: "activity", duration: "3h" },
-        { time: "01:00 PM", title: "Chilika Lake Boat Cruise", description: "Dolphin-spotting tour on Asia's largest brackish lagoon.", estimatedCost: actCost, category: "activity", duration: "4h" },
-        { time: "07:30 PM", title: "Stay at Toshali Sands Beach Resort", description: "Relax at your resort near the beach.", estimatedCost: stayCost, category: "stay", duration: "12h" }
-      ],
-      [
-        { time: "09:00 AM", title: "Raghurajpur Heritage Craft Village", description: "See local painters making legendary Pattachitra folk art.", estimatedCost: 10, category: "activity", duration: "2.5h" },
-        { time: "01:00 PM", title: "Odia Sweet Crawl Lunch", description: "Sample fresh hot Rasagola, Chhena Jhili, and local savories.", estimatedCost: foodCost1, category: "food", duration: "1.5h" },
-        { time: "03:30 PM", title: "Khandagiri Caves Guided Walk", description: "Explore the ancient rock-cut Jain caves in Bhubaneswar.", estimatedCost: 5, category: "activity", duration: "2h" },
-        { time: "07:30 PM", title: "Stay at Bhubaneswar Boutique Hotel", description: "Premium hotel stay in capital city.", estimatedCost: stayCost, category: "stay", duration: "12h" }
+        { time: "09:00 AM", title: "Konark Sun Temple Tour", description: "Explore the 13th-century architectural masterpiece built as a giant chariot.", estimatedCost: Math.round(8 * exchangeRate), category: "activity", duration: "3h" },
+        { time: "01:00 PM", title: "Lunch at Dalma Restaurant", description: "Authentic Odia cuisine including Dalma, Pakhala, and fish curry.", estimatedCost: foodCost1, category: "food", duration: "1h" },
+        { time: "03:00 PM", title: "Puri Jagannath Temple Walk", description: "Visit the holy temple town and walk the grand road (Bada Danda).", estimatedCost: 0, category: "activity", duration: "2h" },
+        { time: "07:30 PM", title: "Stay at Hans Coco Palms Resort", description: "Relaxing beach resort stay in Puri.", estimatedCost: stayCost, category: "stay", duration: "12h" }
       ]
-    ];
-    return list[dayIndex % list.length];
+    ][dayIndex % 1];
   }
-
   // Kerala Fallback
-  if (destLower.includes("kerala") || destLower.includes("kochi") || destLower.includes("alleppey") || destLower.includes("munnar")) {
-    const list = [
+  else if (destLower.includes("kerala") || destLower.includes("munnar") || destLower.includes("kochi") || destLower.includes("alleppey")) {
+    rawList = [
       [
-        { time: "09:00 AM", title: "Munnar Tea Gardens", description: "Walk through lush green manicured tea estates and waterfalls.", estimatedCost: 10, category: "activity", duration: "3.5h" },
-        { time: "01:00 PM", title: "Traditional Kerala Sadhya Lunch", description: "Feast served on a fresh banana leaf with over 15 local curries.", estimatedCost: foodCost1, category: "food", duration: "1.5h" },
-        { time: "03:00 PM", title: "Alleppey Houseboat Check-in", description: "Board your private luxury houseboat tracing the scenic backwaters.", estimatedCost: stayCost, category: "stay", duration: "18h" }
+        { time: "09:00 AM", title: "Munnar Tea Garden Walk", description: "Stroll through the lush green rolling hills of organic tea estates.", estimatedCost: Math.round(5 * exchangeRate), category: "activity", duration: "2h" },
+        { time: "01:00 PM", title: "Lunch at Munnar Hill Cafe", description: "Sample local Kerala style fish pollichathu and parotta.", estimatedCost: foodCost1, category: "food", duration: "1h" },
+        { time: "03:00 PM", title: "Eravikulam National Park Safari", description: "Spot the endangered Nilgiri Tahr mountain goat on the high slopes.", estimatedCost: Math.round(12 * exchangeRate), category: "activity", duration: "3h" },
+        { time: "07:30 PM", title: "Stay at Munnar Hill Resort", description: "Cozy rooms with valley views.", estimatedCost: stayCost, category: "stay", duration: "12h" }
       ],
       [
-        { time: "09:00 AM", title: "Kochi Fort Walkway", description: "View the iconic Chinese Fishing Nets and historic Dutch palace.", estimatedCost: 5, category: "activity", duration: "2.5h" },
-        { time: "01:00 PM", title: "Lunch at Kashi Art Cafe", description: "Quaint art gallery cafe serving local healthy recipes.", estimatedCost: foodCost1, category: "food", duration: "1h" },
-        { time: "03:30 PM", title: "Kathakali Dance Show", description: "Traditional stylized classical Indian dance performance.", estimatedCost: 15, category: "activity", duration: "2h" },
-        { time: "07:30 PM", title: "Stay at Fort Kochi Heritage Hotel", description: "Colonial-style boutique stay.", estimatedCost: stayCost, category: "stay", duration: "12h" }
-      ],
-      [
-        { time: "09:00 AM", title: "Periyar Wildlife Boating", description: "Scenic boat safari in Thekkady to spot wild elephants and birds.", estimatedCost: actCost, category: "activity", duration: "3h" },
-        { time: "01:00 PM", title: "Spice Plantation Tour & Lunch", description: "Guided farm walk learning cardamom, pepper, and cinnamon harvests.", estimatedCost: foodCost1, category: "food", duration: "2h" },
-        { time: "04:30 PM", title: "Kalaripayattu Martial Art Show", description: "Watch a dynamic, ancient traditional combat show.", estimatedCost: 10, category: "activity", duration: "1.5h" },
-        { time: "07:30 PM", title: "Stay at Munnar Mountain Resort", description: "Cozy rooms nestled in foggy valleys.", estimatedCost: stayCost, category: "stay", duration: "12h" }
+        { time: "11:30 AM", title: "Alleppey Houseboat Check-in", description: "Board your private traditional Kettuvallam houseboat.", estimatedCost: stayCost, category: "stay", duration: "20h" },
+        { time: "01:30 PM", title: "Lunch on Backwaters", description: "Freshly prepared Karimeen fry and traditional red rice onboard.", estimatedCost: foodCost1, category: "food", duration: "1.5h" },
+        { time: "04:30 PM", title: "Village Canal Canoe Cruise", description: "Float through tiny palm-fringed canals to see local village life.", estimatedCost: Math.round(10 * exchangeRate), category: "activity", duration: "2h" }
       ]
-    ];
-    return list[dayIndex % list.length];
+    ][dayIndex % 2];
   }
-
   // Tamil Nadu Fallback
-  if (destLower.includes("tamil nadu") || destLower.includes("chennai") || destLower.includes("madurai") || destLower.includes("ooty")) {
-    const list = [
+  else if (destLower.includes("tamil nadu") || destLower.includes("chennai") || destLower.includes("madurai")) {
+    rawList = [
       [
-        { time: "09:00 AM", title: "Madurai Meenakshi Temple", description: "Guided tour through the historic gopuram towers of the temple.", estimatedCost: actCost, category: "activity", duration: "3h" },
-        { time: "01:00 PM", title: "Lunch at Murugan Idli Shop", description: "Taste soft fluffy idlis, vada, and authentic ghee roast dosa.", estimatedCost: foodCost1, category: "food", duration: "1h" },
-        { time: "03:00 PM", title: "Marina Beach Sunset Walk", description: "Second longest beach in the world, trying local hot snacks.", estimatedCost: 5, category: "activity", duration: "2h" },
-        { time: "07:30 PM", title: "Stay at ITC Grand Chola Chennai", description: "Premium imperial South Indian architecture stay.", estimatedCost: stayCost, category: "stay", duration: "12h" }
-      ],
-      [
-        { time: "09:00 AM", title: "Mahabalipuram Shore Temples", description: "Explore the ancient rock-cut cave temples and monolithic structures.", estimatedCost: 10, category: "activity", duration: "3h" },
-        { time: "01:00 PM", title: "Seafood Feast Lunch", description: "Taste spicy local fried fish and prawns right on the beach.", estimatedCost: foodCost1, category: "food", duration: "1.5h" },
-        { time: "03:00 PM", title: "Matrimandir Meditation Walk", description: "Quiet stroll through the beautiful gardens of Auroville.", estimatedCost: 0, category: "activity", duration: "3.5h" },
-        { time: "07:30 PM", title: "Stay at Pondicherry Beach Villa", description: "Heritage French-quarter boutique stay.", estimatedCost: stayCost, category: "stay", duration: "12h" }
-      ],
-      [
-        { time: "08:30 AM", title: "Ooty Nilgiri Toy Train", description: "Beautiful historic steam rail transit ascending lush green valleys.", estimatedCost: 15, category: "transport", duration: "2h" },
-        { time: "11:00 AM", title: "Ooty Lake & Botanical Gardens", description: "Walk through rare plants, greenhouse structures, and boating.", estimatedCost: 10, category: "activity", duration: "3h" },
-        { time: "02:00 PM", title: "Lunch at Savoy Club", description: "Premium Anglo-Indian lunch set in a historic clubhouse.", estimatedCost: foodCost1, category: "food", duration: "1.5h" },
-        { time: "07:30 PM", title: "Stay at Ooty Tea Estate Cottage", description: "Relax at a private cottage surrounded by tea plantations.", estimatedCost: stayCost, category: "stay", duration: "12h" }
+        { time: "09:00 AM", title: "Mahabalipuram Shore Temples", description: "Explore the 8th-century rock-cut monolithic carvings on the coast.", estimatedCost: Math.round(8 * exchangeRate), category: "activity", duration: "3h" },
+        { time: "01:00 PM", title: "Lunch at Saravana Bhavan", description: "Classic South Indian thali served with sambar and rasam.", estimatedCost: foodCost1, category: "food", duration: "1h" },
+        { time: "03:00 PM", title: "Marina Beach Evening Walk", description: "Stroll along one of the longest natural sandy urban beaches in the world.", estimatedCost: 0, category: "activity", duration: "2h" },
+        { time: "07:30 PM", title: "Stay at ITC Grand Chola", description: "Premium architectural palace luxury stay.", estimatedCost: stayCost, category: "stay", duration: "12h" }
       ]
-    ];
-    return list[dayIndex % list.length];
+    ][dayIndex % 1];
   }
-
   // Hyderabad Fallback
-  if (destLower.includes("hyderabad")) {
-    const list = [
+  else if (destLower.includes("hyderabad")) {
+    rawList = [
       [
-        { time: "09:30 AM", title: "Golconda Fort Guided Trek", description: "Explore the historic ruins and acoustic wonders of the fortress.", estimatedCost: 12, category: "activity", duration: "3h" },
+        { time: "09:30 AM", title: "Golconda Fort Guided Trek", description: "Explore the historic ruins and acoustic wonders of the fortress.", estimatedCost: Math.round(12 * exchangeRate), category: "activity", duration: "3h" },
         { time: "01:00 PM", title: "Lunch at Paradise Biryani", description: "Feast on world-famous Hyderabadi mutton dum biryani.", estimatedCost: foodCost1, category: "food", duration: "1.5h" },
-        { time: "03:30 PM", title: "Charminar & Laad Bazaar Stroll", description: "Iconic 16th-century monument and market famous for glass bangles.", estimatedCost: 5, category: "activity", duration: "2.5h" },
+        { time: "03:30 PM", title: "Charminar & Laad Bazaar Stroll", description: "Iconic 16th-century monument and market famous for glass bangles.", estimatedCost: Math.round(5 * exchangeRate), category: "activity", duration: "2.5h" },
         { time: "07:30 PM", title: "Stay at Taj Falaknuma Palace", description: "Luxury palace hotel stay.", estimatedCost: stayCost, category: "stay", duration: "12h" }
       ],
       [
         { time: "08:30 AM", title: "Ramoji Film City Studio Tour", description: "Complete guided day trip through the largest film studio complex in the world.", estimatedCost: actCost, category: "activity", duration: "6h" },
-        { time: "04:30 PM", title: "Hussain Sagar Lake Yachting", description: "Watch sunset next to the massive monolith Buddha statue in the lake.", estimatedCost: 10, category: "activity", duration: "2h" },
+        { time: "04:30 PM", title: "Hussain Sagar Lake Yachting", description: "Watch sunset next to the massive monolith Buddha statue in the lake.", estimatedCost: Math.round(10 * exchangeRate), category: "activity", duration: "2h" },
         { time: "07:30 PM", title: "Stay at Taj Falaknuma Palace", description: "Luxury palace hotel stay.", estimatedCost: stayCost, category: "stay", duration: "12h" }
       ],
       [
-        { time: "09:30 AM", title: "Chowmahalla Palace Heritage Walk", description: "Explore the grand court halls, vintage cars, and gardens of the Nizams.", estimatedCost: 10, category: "activity", duration: "3h" },
+        { time: "09:30 AM", title: "Chowmahalla Palace Heritage Walk", description: "Explore the grand court halls, vintage cars, and gardens of the Nizams.", estimatedCost: Math.round(10 * exchangeRate), category: "activity", duration: "3h" },
         { time: "01:00 PM", title: "Lunch at Jewel of Nizam", description: "Fine dining Mughlai experience inside a high tower.", estimatedCost: foodCost1, category: "food", duration: "1.5h" },
         { time: "03:30 PM", title: "Jubilee Hills Shopping", description: "Stroll down premium designer boutiques and organic cafes.", estimatedCost: foodCost2, category: "activity", duration: "2.5h" },
         { time: "07:30 PM", title: "Stay at Taj Falaknuma Palace", description: "Luxury palace hotel stay.", estimatedCost: stayCost, category: "stay", duration: "12h" }
       ]
-    ];
-    return list[dayIndex % list.length];
+    ][dayIndex % 3];
   }
-
   // Foreign Fallbacks (Kyoto, Paris, etc. or generic)
-  if (destLower.includes("paris")) {
-    const list = [
+  else if (destLower.includes("paris")) {
+    rawList = [
       [
         { time: "09:00 AM", title: "Eiffel Tower Summit", description: "Pre-booked lift tickets to the highest panoramic view of Paris.", estimatedCost: actCost, category: "activity", duration: "2h" },
         { time: "12:30 PM", title: "Lunch at French Bistro", description: "Indulge in delicious steak frites and warm chocolate souffles.", estimatedCost: foodCost1, category: "food", duration: "1.5h" },
-        { time: "03:00 PM", title: "Louvre Museum Art Tour", description: "See the Mona Lisa, Winged Victory, and glass pyramids.", estimatedCost: 20, category: "activity", duration: "3h" },
+        { time: "03:00 PM", title: "Louvre Museum Art Tour", description: "See the Mona Lisa, Winged Victory, and glass pyramids.", estimatedCost: Math.round(20 * exchangeRate), category: "activity", duration: "3h" },
         { time: "07:35 PM", title: "Stay at Hotel de Seine", description: "Charming rooms in Saint-Germain-des-Pres.", estimatedCost: stayCost, category: "stay", duration: "12h" }
       ],
       [
-        { time: "09:30 AM", title: "Champs-Elysees & Arc de Triomphe", description: "Stroll down the grand avenue and visit the rooftop war memorial.", estimatedCost: 12, category: "activity", duration: "2.5h" },
+        { time: "09:30 AM", title: "Champs-Elysees & Arc de Triomphe", description: "Stroll down the grand avenue and visit the rooftop war memorial.", estimatedCost: Math.round(12 * exchangeRate), category: "activity", duration: "2.5h" },
         { time: "01:00 PM", title: "Seine River Cruise Lunch", description: "Delicious gourmet dining on a glass-topped boat cruising the river.", estimatedCost: actCost, category: "food", duration: "2h" },
-        { time: "03:30 PM", title: "Montmartre & Sacre-Coeur Walk", description: "Visit the artists' square (Place du Tertre) and the white dome church.", estimatedCost: 5, category: "activity", duration: "3h" },
+        { time: "03:30 PM", title: "Montmartre & Sacre-Coeur Walk", description: "Visit the artists' square (Place du Tertre) and the white dome church.", estimatedCost: Math.round(5 * exchangeRate), category: "activity", duration: "3h" },
         { time: "07:35 PM", title: "Stay at Hotel de Seine", description: "Charming rooms in Saint-Germain-des-Pres.", estimatedCost: stayCost, category: "stay", duration: "12h" }
       ]
-    ];
-    return list[dayIndex % list.length];
+    ][dayIndex % 2];
+  }
+  // Default Generic Premium Fallback
+  else {
+    rawList = [
+      [
+        { time: "09:00 AM", title: `Explore Central ${destination}`, description: `A comprehensive guided tour of iconic city centers and sights in ${destination}.`, estimatedCost: actCost, category: "activity", duration: "3h" },
+        { time: "12:30 PM", title: "Local Culinary Secrets", description: "Taste-testing regional gourmet specialties at a top-rated restaurant.", estimatedCost: foodCost1, category: "food", duration: "1.5h" },
+        { time: "03:00 PM", title: "Art & Culture Shopping Walk", description: "Visit boutique stores, local art galleries, and craft workshops.", estimatedCost: foodCost2, category: "activity", duration: "2.5h" },
+        { time: "07:30 PM", title: "Premium Boutique Resort", description: "Relax and rejuvenate in style with full spa and dinner amenities.", estimatedCost: stayCost, category: "stay", duration: "12h" }
+      ],
+      [
+        { time: "09:30 AM", title: "Scenic Nature & Panoramic Points", description: "Guided walk through scenic valleys, forests, or high points of interest.", estimatedCost: actCost, category: "activity", duration: "2.5h" },
+        { time: "01:00 PM", title: "Lunch at Riverside/Hill Café", description: "Fine bistro dining with beautiful panoramic views.", estimatedCost: foodCost1, category: "food", duration: "1.5h" },
+        { time: "03:30 PM", title: "Historic Landmark Exploration", description: "Learn about the heritage, history, and ancient stories of the city.", estimatedCost: Math.round(10 * exchangeRate), category: "activity", duration: "3h" },
+        { time: "07:30 PM", title: "Premium Boutique Resort", description: "Relax and rejuvenate in style with full spa and dinner amenities.", estimatedCost: stayCost, category: "stay", duration: "12h" }
+      ]
+    ][dayIndex % 2];
   }
 
-  // Default Generic Premium Fallback
-  const list = [
-    [
-      { time: "09:00 AM", title: `Explore Central ${destination}`, description: `A comprehensive guided tour of iconic city centers and sights in ${destination}.`, estimatedCost: actCost, category: "activity", duration: "3h" },
-      { time: "12:30 PM", title: "Local Culinary Secrets", description: "Taste-testing regional gourmet specialties at a top-rated restaurant.", estimatedCost: foodCost1, category: "food", duration: "1.5h" },
-      { time: "03:00 PM", title: "Art & Culture Shopping Walk", description: "Visit boutique stores, local art galleries, and craft workshops.", estimatedCost: foodCost2, category: "activity", duration: "2.5h" },
-      { time: "07:30 PM", title: "Premium Boutique Resort", description: "Relax and rejuvenate in style with full spa and dinner amenities.", estimatedCost: stayCost, category: "stay", duration: "12h" }
-    ],
-    [
-      { time: "09:30 AM", title: "Scenic Nature & Panoramic Points", description: "Guided walk through scenic valleys, forests, or high points of interest.", estimatedCost: actCost, category: "activity", duration: "2.5h" },
-      { time: "01:00 PM", title: "Lunch at Riverside/Hill Café", description: "Fine bistro dining with beautiful panoramic views.", estimatedCost: foodCost1, category: "food", duration: "1.5h" },
-      { time: "03:30 PM", title: "Historic Landmark Exploration", description: "Learn about the heritage, history, and ancient stories of the city.", estimatedCost: 10, category: "activity", duration: "3h" },
-      { time: "07:30 PM", title: "Premium Boutique Resort", description: "Relax and rejuvenate in style with full spa and dinner amenities.", estimatedCost: stayCost, category: "stay", duration: "12h" }
-    ]
-  ];
-  return list[dayIndex % list.length];
+  return rawList.map((act, index) => {
+    return {
+      ...act,
+      mapsLink: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(act.title + " " + destination)}`,
+      travelTime: index === 0 ? "Check-in arrival" : "15-20 mins transit"
+    };
+  });
 };
 
 const generateMockItinerary = (destination, startDate, endDate, travelers, interests, budget) => {
@@ -345,8 +362,8 @@ const generateMockItinerary = (destination, startDate, endDate, travelers, inter
   return { days };
 };
 
-const generateMockDayActivities = (destination, dayIndex, interests, dailyBudget) => {
-  return getLocalizedActivities(destination, dayIndex, dailyBudget);
+const generateMockDayActivities = (destination, dayIndex, interests, dailyBudget, exchangeRate = 1.0) => {
+  return getLocalizedActivities(destination, dayIndex, dailyBudget, exchangeRate);
 };
 
 // Call OpenAI helper
@@ -368,7 +385,9 @@ Schema:
       "description": "Short engaging description",
       "estimatedCost": 25,
       "category": "stay|food|activity|transport",
-      "duration": "2h"
+      "duration": "2h",
+      "mapsLink": "https://www.google.com/maps/search/?api=1&query=...",
+      "travelTime": "15 mins drive from previous spot"
     }
   ]
 }`
@@ -376,6 +395,16 @@ Schema:
 Return ONLY a valid JSON object matching this schema. Do not write any markdown formatting, code blocks, or explanations.
 Schema:
 {
+  "country": "Country name (e.g. India, Japan, UK)",
+  "currencyCode": "Currency ISO code (e.g. INR, JPY, GBP, EUR)",
+  "currencySymbol": "Currency symbol (e.g. ₹, ¥, £, €)",
+  "destinationDetails": {
+    "region": "State or Region name",
+    "latitude": 35.6762,
+    "longitude": 139.6503,
+    "popularAttractions": ["Attraction A", "Attraction B"],
+    "imageUrl": "https://images.unsplash.com/photo-1540959733332-eab4deceeaf7"
+  },
   "days": [
     {
       "date": "YYYY-MM-DD",
@@ -386,7 +415,9 @@ Schema:
           "description": "Short premium description",
           "estimatedCost": 45,
           "category": "stay|food|activity|transport",
-          "duration": "3h"
+          "duration": "3h",
+          "mapsLink": "https://www.google.com/maps/search/?api=1&query=...",
+          "travelTime": "15 mins drive"
         }
       ]
     }
@@ -433,18 +464,35 @@ export const generateItinerary = async (req, res, next) => {
       return next(new Error("Not authorized to modify this trip"));
     }
 
-    const prompt = `Generate a day-by-day travel itinerary for a trip to: "${trip.destination}".
+    const currencyInfo = detectCountryCurrency(trip.destination);
+    const exchangeRate = await getExchangeRate(currencyInfo.code, currencyInfo.fallbackRate);
+    const localBudget = Math.round(trip.budget * exchangeRate);
+
+    // Initial pre-save of currency code for fallbacks
+    trip.country = currencyInfo.country;
+    trip.currencyCode = currencyInfo.code;
+    trip.currencySymbol = currencyInfo.symbol;
+
+    const prompt = `Generate a highly unique, non-duplicating day-by-day travel itinerary for a trip to: "${trip.destination}".
 Start date: ${trip.startDate}
 End date: ${trip.endDate}
-Budget: $${trip.budget} USD (ensure all activities, lodging, and dining costs fit this budget limit)
+Budget limit in USD: $${trip.budget}
+Local Target Country Detected: ${currencyInfo.country}
+Local Currency Code: ${currencyInfo.code}
+Local Currency Symbol: ${currencyInfo.symbol}
+Exchange Rate relative to USD: 1 USD = ${exchangeRate} ${currencyInfo.code}
+Total Converted Budget limit: ${localBudget} ${currencyInfo.code} (ensure ALL lodging, dining, transport, and activities fit within this budget limit!).
 Travelers: ${trip.travelers}
 Interests: ${trip.interests.join(", ")}
 
-The destination might be in India (e.g. Delhi, Kedarnath, Haridwar, Sonprayag, Vizag, Odisha, Kerala, Tamil Nadu, Hyderabad, Goa, Ladakh, Rajasthan, etc.) or any foreign country (e.g. Kyoto, Paris, Switzerland, New York, Bali, etc.).
-Make sure to generate highly localized, authentic travel itineraries:
-- For Indian destinations: include specific heritage spots/temples (e.g., Kedarnath Temple, Har Ki Pauri in Haridwar, Charminar in Hyderabad, beaches in Vizag, temples/beaches in Odisha, backwaters in Kerala), local stays (ashrams, base camps in Sonprayag, heritage houses, local luxury stays), authentic regional cuisines (like South Indian meals in Tamil Nadu/Kerala, Biryani in Hyderabad, street foods in Delhi), and transit modes (shared mountain jeeps, auto-rickshaws, local trains/metro, taxis).
-- For Foreign locations: include local transit (metro, subways, shinkansen, cabs), regional culinary specialties, and iconic sights.
-Provide activities for each day from start date to end date. Make it premium and tailored.`;
+Requirements:
+1. DETECT state/region name, coordinates (latitude & longitude), and list of 3-4 popular attractions near "${trip.destination}".
+2. Display ALL activity estimated costs in "${currencyInfo.code}" (using "${currencyInfo.symbol}").
+3. Every single day MUST contain different attractions and activities. Do NOT duplicate or copy-paste the same attractions across multiple days.
+4. For each activity:
+   - Provide a "mapsLink" which is a Google Maps search URL (e.g. "https://www.google.com/maps/search/?api=1&query=Rishikonda+Beach+Vizag")
+   - Provide "travelTime" indicating the estimated travel time from the previous activity of the day (e.g. "15 mins drive" or "Walk across the street").
+5. Provide a beautiful, high-quality Unsplash image URL related to the destination in "destinationDetails.imageUrl" (e.g., "https://images.unsplash.com/photo-1540959733332-eab4deceeaf7").`;
 
     let itineraryData = null;
     let attempts = 0;
@@ -489,6 +537,17 @@ Provide activities for each day from start date to end date. Make it premium and
 
     // Save itinerary to trip
     trip.days = itineraryData.days;
+    trip.country = itineraryData.country || currencyInfo.country;
+    trip.currencyCode = itineraryData.currencyCode || currencyInfo.code;
+    trip.currencySymbol = itineraryData.currencySymbol || currencyInfo.symbol;
+    trip.destinationDetails = {
+      region: itineraryData.destinationDetails?.region || "",
+      latitude: itineraryData.destinationDetails?.latitude || 0,
+      longitude: itineraryData.destinationDetails?.longitude || 0,
+      popularAttractions: itineraryData.destinationDetails?.popularAttractions || [],
+      imageUrl: itineraryData.destinationDetails?.imageUrl || "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=600&q=80"
+    };
+    
     trip.status = "generated";
     const updatedTrip = await trip.save();
 
@@ -523,12 +582,18 @@ export const regenerateDay = async (req, res, next) => {
     }
 
     const targetDay = trip.days[idx];
+    const currencyInfo = detectCountryCurrency(trip.destination);
+    const exchangeRate = await getExchangeRate(trip.currencyCode || currencyInfo.code, currencyInfo.fallbackRate);
+    const dailyBudget = Math.round((trip.budget * exchangeRate) / trip.days.length);
 
     const prompt = `Regenerate the activities for Day ${idx + 1} of a trip to ${trip.destination}.
 Date: ${targetDay.date}
 Interests: ${trip.interests.join(", ")}
-Budget segment: Daily share is around $${Math.round(trip.budget / trip.days.length)}.
-Provide 3-4 premium, engaging travel activities tailored for this day.`;
+Budget segment in ${trip.currencyCode || currencyInfo.code}: Daily share is around ${trip.currencySymbol || currencyInfo.symbol}${dailyBudget}.
+Provide 3-4 unique, engaging travel activities tailored for this day. 
+Requirements:
+- Estimated cost must be in ${trip.currencyCode || currencyInfo.code}.
+- Provide Google Map search links ("mapsLink") and travel time offsets ("travelTime") for each activity.`;
 
     let activities = null;
     let attempts = 0;
@@ -558,8 +623,7 @@ Provide 3-4 premium, engaging travel activities tailored for this day.`;
 
     if (useFallback || !activities || activities.length === 0) {
       console.log("Generating mock fallback activities for day...");
-      const dailyBudget = Math.round(trip.budget / trip.days.length);
-      activities = generateMockDayActivities(trip.destination, idx, trip.interests, dailyBudget);
+      activities = generateMockDayActivities(trip.destination, idx, trip.interests, dailyBudget, exchangeRate);
     }
 
     // Replace the activities for that day

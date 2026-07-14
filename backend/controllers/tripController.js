@@ -149,8 +149,8 @@ export const exportTripPDF = async (req, res, next) => {
     doc.text(`Start Date: ${trip.startDate}`);
     doc.text(`End Date: ${trip.endDate}`);
     doc.text(`Travelers: ${trip.travelers}`);
-    doc.text(`Budget Limit: $${trip.budget} USD`);
-    doc.text(`Total Estimated Cost: $${trip.totalEstimatedCost || 0} USD`);
+    doc.text(`Budget Limit: ${trip.currencySymbol || "$"}${trip.budget} ${trip.currencyCode || "USD"}`);
+    doc.text(`Total Estimated Cost: ${trip.currencySymbol || "$"}${trip.totalEstimatedCost || 0} ${trip.currencyCode || "USD"}`);
     doc.text(`Interests: ${trip.interests.join(", ")}`);
     doc.moveDown(2);
 
@@ -169,7 +169,7 @@ export const exportTripPDF = async (req, res, next) => {
             if (act.description) {
               doc.fillColor("#64748B").fontSize(10).text(act.description, { indent: 15 });
             }
-            doc.fillColor("#1E293B").fontSize(10).text(`Estimated Cost: $${act.estimatedCost} USD | Duration: ${act.duration || "N/A"}`, { indent: 15 });
+            doc.fillColor("#1E293B").fontSize(10).text(`Estimated Cost: ${trip.currencySymbol || "$"}${act.estimatedCost} ${trip.currencyCode || "USD"} | Duration: ${act.duration || "N/A"}`, { indent: 15 });
             doc.moveDown(0.8);
           });
         } else {
@@ -199,6 +199,8 @@ export const getTripWeather = async (req, res, next) => {
 
     const destination = trip.destination;
     let weatherData = null;
+    let forecast = [];
+    let recommendation = "Perfect weather for outdoor exploration!";
 
     if (process.env.WEATHER_API_KEY) {
       try {
@@ -216,8 +218,29 @@ export const getTripWeather = async (req, res, next) => {
           icon: response.data.weather[0].icon,
           city: response.data.name,
         };
+
+        // Try getting forecast
+        const forecastRes = await axios.get(
+          `https://api.openweathermap.org/data/2.5/forecast?q=${encodeURIComponent(
+            destination
+          )}&appid=${process.env.WEATHER_API_KEY}&units=metric`
+        );
+        if (forecastRes.data && Array.isArray(forecastRes.data.list)) {
+          const list = forecastRes.data.list;
+          const dailyPoints = [];
+          for (let i = 0; i < list.length; i += 8) {
+            dailyPoints.push({
+              date: list[i].dt_txt ? list[i].dt_txt.split(" ")[0] : "Forecast Day",
+              temp: Math.round(list[i].main.temp),
+              description: list[i].weather[0].description,
+              icon: list[i].weather[0].icon,
+            });
+            if (dailyPoints.length >= 3) break;
+          }
+          forecast = dailyPoints;
+        }
       } catch (apiErr) {
-        console.warn("Weather API call failed, using high-fidelity mock fallback:", apiErr.message);
+        console.warn("Weather/Forecast API call failed, using high-fidelity mock fallback:", apiErr.message);
       }
     }
 
@@ -247,7 +270,38 @@ export const getTripWeather = async (req, res, next) => {
       };
     }
 
-    res.json(weatherData);
+    if (forecast.length === 0) {
+      let code = 0;
+      for (let i = 0; i < destination.length; i++) {
+        code += destination.charCodeAt(i);
+      }
+      const temp = weatherData.temp;
+      const descriptions = ["clear sky", "few clouds", "scattered clouds", "broken clouds", "light rain"];
+      const icons = ["01d", "02d", "03d", "04d", "10d"];
+      
+      forecast = [
+        { date: "Day 1", temp: temp, description: weatherData.description, icon: weatherData.icon },
+        { date: "Day 2", temp: temp + (code % 3) - 1, description: descriptions[(code + 1) % descriptions.length], icon: icons[(code + 1) % icons.length] },
+        { date: "Day 3", temp: temp + (code % 4) - 2, description: descriptions[(code + 2) % descriptions.length], icon: icons[(code + 2) % icons.length] }
+      ];
+    }
+
+    const hasRain = forecast.some(f => f.description.includes("rain") || f.description.includes("drizzle") || f.description.includes("shower"));
+    const isVeryHot = forecast.some(f => f.temp > 32);
+    
+    if (hasRain) {
+      recommendation = "🌧️ Rainy conditions expected. We recommend exploring indoor attractions like museums, cafes, and historical monuments today.";
+    } else if (isVeryHot) {
+      recommendation = "☀️ Very high temperatures forecast. Stay hydrated! Focus on air-conditioned indoor experiences or shaded parks/gardens.";
+    } else {
+      recommendation = "✨ Excellent weather ahead. Ideal conditions for outdoor adventures, treks, sightseeing, and beach explorations.";
+    }
+
+    res.json({
+      current: weatherData,
+      forecast,
+      recommendation
+    });
   } catch (error) {
     next(error);
   }

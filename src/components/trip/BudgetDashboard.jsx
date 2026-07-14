@@ -49,13 +49,13 @@ const BudgetDashboard = ({ trip }) => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card className="border border-zinc-900 flex flex-col gap-2">
           <span className="text-zinc-500 text-xs font-semibold uppercase tracking-wider">Total Budget</span>
-          <span className="text-3xl font-bold font-sans">${budget}</span>
+          <span className="text-3xl font-bold font-sans">{trip.currencySymbol || "$"}{budget}</span>
         </Card>
         
         <Card className="border border-zinc-900 flex flex-col gap-2">
           <span className="text-zinc-500 text-xs font-semibold uppercase tracking-wider">Estimated Expenses</span>
           <span className={`text-3xl font-bold font-sans ${isOver ? "text-red-400" : "text-white"}`}>
-            ${estimated}
+            {trip.currencySymbol || "$"}{estimated}
           </span>
         </Card>
 
@@ -77,7 +77,7 @@ const BudgetDashboard = ({ trip }) => {
 
       {isOver && (
         <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-lg text-xs font-medium">
-          ⚠️ Your estimated trip expenses exceed the allocated budget by <strong>${estimated - budget}</strong>. Consider adjusting daily activity costs.
+          ⚠️ Your estimated trip expenses exceed the allocated budget by <strong>{trip.currencySymbol || "$"}{estimated - budget}</strong>. Consider adjusting daily activity costs.
         </div>
       )}
 
@@ -124,7 +124,7 @@ const BudgetDashboard = ({ trip }) => {
                       <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
                       <span className="text-zinc-400 font-medium">{item.name}</span>
                     </div>
-                    <span className="font-bold font-sans text-white">${item.value}</span>
+                    <span className="font-bold font-sans text-white">{trip.currencySymbol || "$"}{item.value}</span>
                   </div>
                 ))}
               </div>
