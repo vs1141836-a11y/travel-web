@@ -43,6 +43,8 @@ const tripSchema = new mongoose.Schema(
     country: { type: String, default: "" },
     currencyCode: { type: String, default: "USD" },
     currencySymbol: { type: String, default: "$" },
+    localBudget: { type: Number, default: 0 },
+    exchangeRate: { type: Number, default: 1 },
     destinationDetails: {
       region: { type: String, default: "" },
       latitude: { type: Number, default: 0 },
