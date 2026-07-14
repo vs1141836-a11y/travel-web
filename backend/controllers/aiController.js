@@ -1,34 +1,84 @@
 import axios from "axios";
 import Trip from "../models/Trip.js";
 
+const countryToCurrencyMap = {
+  "india": { country: "India", code: "INR", symbol: "₹", rate: 83.5 },
+  "delhi": { country: "India", code: "INR", symbol: "₹", rate: 83.5 },
+  "kedarnath": { country: "India", code: "INR", symbol: "₹", rate: 83.5 },
+  "haridwar": { country: "India", code: "INR", symbol: "₹", rate: 83.5 },
+  "sonprayag": { country: "India", code: "INR", symbol: "₹", rate: 83.5 },
+  "vizag": { country: "India", code: "INR", symbol: "₹", rate: 83.5 },
+  "goa": { country: "India", code: "INR", symbol: "₹", rate: 83.5 },
+  "mumbai": { country: "India", code: "INR", symbol: "₹", rate: 83.5 },
+  "bengaluru": { country: "India", code: "INR", symbol: "₹", rate: 83.5 },
+  "kerala": { country: "India", code: "INR", symbol: "₹", rate: 83.5 },
+  "hyderabad": { country: "India", code: "INR", symbol: "₹", rate: 83.5 },
+  "tamil nadu": { country: "India", code: "INR", symbol: "₹", rate: 83.5 },
+  "japan": { country: "Japan", code: "JPY", symbol: "¥", rate: 155.0 },
+  "tokyo": { country: "Japan", code: "JPY", symbol: "¥", rate: 155.0 },
+  "kyoto": { country: "Japan", code: "JPY", symbol: "¥", rate: 155.0 },
+  "osaka": { country: "Japan", code: "JPY", symbol: "¥", rate: 155.0 },
+  "united kingdom": { country: "United Kingdom", code: "GBP", symbol: "£", rate: 0.78 },
+  "london": { country: "United Kingdom", code: "GBP", symbol: "£", rate: 0.78 },
+  "england": { country: "United Kingdom", code: "GBP", symbol: "£", rate: 0.78 },
+  "scotland": { country: "United Kingdom", code: "GBP", symbol: "£", rate: 0.78 },
+  "united arab emirates": { country: "United Arab Emirates", code: "AED", symbol: "AED", rate: 3.67 },
+  "dubai": { country: "United Arab Emirates", code: "AED", symbol: "AED", rate: 3.67 },
+  "abu dhabi": { country: "United Arab Emirates", code: "AED", symbol: "AED", rate: 3.67 },
+  "australia": { country: "Australia", code: "AUD", symbol: "A$", rate: 1.50 },
+  "sydney": { country: "Australia", code: "AUD", symbol: "A$", rate: 1.50 },
+  "melbourne": { country: "Australia", code: "AUD", symbol: "A$", rate: 1.50 },
+  "france": { country: "France", code: "EUR", symbol: "€", rate: 0.92 },
+  "paris": { country: "France", code: "EUR", symbol: "€", rate: 0.92 },
+  "germany": { country: "Germany", code: "EUR", symbol: "€", rate: 0.92 },
+  "italy": { country: "Italy", code: "EUR", symbol: "€", rate: 0.92 },
+  "rome": { country: "Italy", code: "EUR", symbol: "€", rate: 0.92 },
+  "spain": { country: "Spain", code: "EUR", symbol: "€", rate: 0.92 },
+  "madrid": { country: "Spain", code: "EUR", symbol: "€", rate: 0.92 },
+  "barcelona": { country: "Spain", code: "EUR", symbol: "€", rate: 0.92 },
+  "greece": { country: "Greece", code: "EUR", symbol: "€", rate: 0.92 },
+  "switzerland": { country: "Switzerland", code: "CHF", symbol: "CHF", rate: 0.90 },
+  "netherlands": { country: "Netherlands", code: "EUR", symbol: "€", rate: 0.92 },
+  "amsterdam": { country: "Netherlands", code: "EUR", symbol: "€", rate: 0.92 },
+  "canada": { country: "Canada", code: "CAD", symbol: "C$", rate: 1.36 },
+  "toronto": { country: "Canada", code: "CAD", symbol: "C$", rate: 1.36 },
+  "vancouver": { country: "Canada", code: "CAD", symbol: "C$", rate: 1.36 },
+  "singapore": { country: "Singapore", code: "SGD", symbol: "S$", rate: 1.34 },
+  "brazil": { country: "Brazil", code: "BRL", symbol: "R$", rate: 5.20 },
+  "rio de janeiro": { country: "Brazil", code: "BRL", symbol: "R$", rate: 5.20 },
+  "sweden": { country: "Sweden", code: "SEK", symbol: "kr", rate: 10.50 },
+  "norway": { country: "Norway", code: "NOK", symbol: "kr", rate: 10.70 },
+  "denmark": { country: "Denmark", code: "DKK", symbol: "kr", rate: 6.80 },
+  "china": { country: "China", code: "CNY", symbol: "¥", rate: 7.25 },
+  "hong kong": { country: "Hong Kong", code: "HKD", symbol: "HK$", rate: 7.80 },
+  "new zealand": { country: "New Zealand", code: "NZD", symbol: "NZ$", rate: 1.62 },
+  "mexico": { country: "Mexico", code: "MXN", symbol: "$", rate: 18.20 },
+  "thailand": { country: "Thailand", code: "THB", symbol: "฿", rate: 36.50 },
+  "bangkok": { country: "Thailand", code: "THB", symbol: "฿", rate: 36.50 },
+  "phuket": { country: "Thailand", code: "THB", symbol: "฿", rate: 36.50 },
+  "malaysia": { country: "Malaysia", code: "MYR", symbol: "RM", rate: 4.70 },
+  "indonesia": { country: "Indonesia", code: "IDR", symbol: "Rp", rate: 16200 },
+  "bali": { country: "Indonesia", code: "IDR", symbol: "Rp", rate: 16200 },
+  "philippines": { country: "Philippines", code: "PHP", symbol: "₱", rate: 58.50 },
+  "vietnam": { country: "Vietnam", code: "VND", symbol: "₫", rate: 25400 },
+  "south korea": { country: "South Korea", code: "KRW", symbol: "₩", rate: 1380 },
+  "seoul": { country: "South Korea", code: "KRW", symbol: "₩", rate: 1380 },
+  "turkey": { country: "Turkey", code: "TRY", symbol: "₺", rate: 32.50 },
+  "south africa": { country: "South Africa", code: "ZAR", symbol: "R", rate: 18.50 },
+  "russia": { country: "Russia", code: "RUB", symbol: "₽", rate: 90.00 },
+  "saudi arabia": { country: "Saudi Arabia", code: "SAR", symbol: "SR", rate: 3.75 },
+  "israel": { country: "Israel", code: "ILS", symbol: "₪", rate: 3.70 },
+  "egypt": { country: "Egypt", code: "EGP", symbol: "E£", rate: 47.50 },
+};
+
 const detectCountryCurrency = (destination) => {
   const dest = destination.toLowerCase().trim();
-  
-  if (dest.includes("india") || dest.includes("delhi") || dest.includes("kedarnath") || dest.includes("haridwar") || dest.includes("sonprayag") || dest.includes("vizag") || dest.includes("odisha") || dest.includes("kerala") || dest.includes("tamil nadu") || dest.includes("hyderabad") || dest.includes("goa") || dest.includes("ladakh") || dest.includes("rajasthan") || dest.includes("inr")) {
-    return { country: "India", code: "INR", symbol: "₹", fallbackRate: 83.5 };
+  for (const key of Object.keys(countryToCurrencyMap)) {
+    if (dest.includes(key)) {
+      const match = countryToCurrencyMap[key];
+      return { country: match.country, code: match.code, symbol: match.symbol, fallbackRate: match.rate };
+    }
   }
-  if (dest.includes("japan") || dest.includes("tokyo") || dest.includes("kyoto") || dest.includes("osaka") || dest.includes("jpy")) {
-    return { country: "Japan", code: "JPY", symbol: "¥", fallbackRate: 155.0 };
-  }
-  if (dest.includes("united kingdom") || dest.includes("london") || dest.includes("england") || dest.includes("scotland") || dest.includes("gbp") || dest.includes(" uk ")) {
-    return { country: "United Kingdom", code: "GBP", symbol: "£", fallbackRate: 0.78 };
-  }
-  if (dest.includes("united arab emirates") || dest.includes("dubai") || dest.includes("abu dhabi") || dest.includes("emirates") || dest.includes("aed") || dest.includes(" uae")) {
-    return { country: "United Arab Emirates", code: "AED", symbol: "AED", fallbackRate: 3.67 };
-  }
-  if (dest.includes("australia") || dest.includes("sydney") || dest.includes("melbourne") || dest.includes("brisbane") || dest.includes("aud")) {
-    return { country: "Australia", code: "AUD", symbol: "A$", fallbackRate: 1.50 };
-  }
-  if (dest.includes("europe") || dest.includes("france") || dest.includes("paris") || dest.includes("germany") || dest.includes("italy") || dest.includes("spain") || dest.includes("greece") || dest.includes("switzerland") || dest.includes("amsterdam") || dest.includes("netherlands") || dest.includes("eur")) {
-    return { country: "Europe", code: "EUR", symbol: "€", fallbackRate: 0.92 };
-  }
-  if (dest.includes("canada") || dest.includes("toronto") || dest.includes("vancouver") || dest.includes("montreal") || dest.includes("cad")) {
-    return { country: "Canada", code: "CAD", symbol: "C$", fallbackRate: 1.36 };
-  }
-  if (dest.includes("singapore") || dest.includes("sgd")) {
-    return { country: "Singapore", code: "SGD", symbol: "S$", fallbackRate: 1.34 };
-  }
-  
   return { country: "United States", code: "USD", symbol: "$", fallbackRate: 1.0 };
 };
 
@@ -115,6 +165,8 @@ const sanitizeAndValidateItinerary = (data) => {
     country: typeof data.country === "string" ? data.country : "",
     currencyCode: typeof data.currencyCode === "string" ? data.currencyCode : "USD",
     currencySymbol: typeof data.currencySymbol === "string" ? data.currencySymbol : "$",
+    localBudget: Number(data.localBudget) || 0,
+    exchangeRate: Number(data.exchangeRate) || 0,
     destinationDetails: {
       region: data.destinationDetails?.region || "",
       latitude: Number(data.destinationDetails?.latitude) || 0,
@@ -477,22 +529,20 @@ export const generateItinerary = async (req, res, next) => {
 Start date: ${trip.startDate}
 End date: ${trip.endDate}
 Budget limit in USD: $${trip.budget}
-Local Target Country Detected: ${currencyInfo.country}
-Local Currency Code: ${currencyInfo.code}
-Local Currency Symbol: ${currencyInfo.symbol}
-Exchange Rate relative to USD: 1 USD = ${exchangeRate} ${currencyInfo.code}
-Total Converted Budget limit: ${localBudget} ${currencyInfo.code} (ensure ALL lodging, dining, transport, and activities fit within this budget limit!).
 Travelers: ${trip.travelers}
 Interests: ${trip.interests.join(", ")}
 
 Requirements:
-1. DETECT state/region name, coordinates (latitude & longitude), and list of 3-4 popular attractions near "${trip.destination}".
-2. Display ALL activity estimated costs in "${currencyInfo.code}" (using "${currencyInfo.symbol}").
-3. Every single day MUST contain different attractions and activities. Do NOT duplicate or copy-paste the same attractions across multiple days.
-4. For each activity:
-   - Provide a "mapsLink" which is a Google Maps search URL (e.g. "https://www.google.com/maps/search/?api=1&query=Rishikonda+Beach+Vizag")
+1. DETECT the target country, its local currency ISO code (e.g. INR, JPY, EUR, GBP, BRL, AED, etc.), and currency symbol (e.g. ₹, ¥, €, £, R$, etc.) for the destination "${trip.destination}".
+2. CONVERT the USD budget limit ($${trip.budget}) to that local currency using current exchange rates, and output this converted number in "localBudget" at the root of the JSON response.
+3. Return "country", "currencyCode", and "currencySymbol" in the root of the JSON response.
+4. DETECT state/region name, coordinates (latitude & longitude), and list of 3-4 popular attractions near "${trip.destination}" and return them in "destinationDetails".
+5. Display ALL activity estimated costs, lodging, and dining costs in that local currency (matching the computed localBudget).
+6. Every single day MUST contain different attractions and activities. Do NOT duplicate or copy-paste the same attractions across multiple days.
+7. For each activity:
+   - Provide a "mapsLink" which is a Google Maps search URL (e.g. "https://www.google.com/maps/search/?api=1&query=...")
    - Provide "travelTime" indicating the estimated travel time from the previous activity of the day (e.g. "15 mins drive" or "Walk across the street").
-5. Provide a beautiful, high-quality Unsplash image URL related to the destination in "destinationDetails.imageUrl" (e.g., "https://images.unsplash.com/photo-1540959733332-eab4deceeaf7").`;
+8. Provide a beautiful, high-quality Unsplash image URL related to the destination in "destinationDetails.imageUrl" (e.g., "https://images.unsplash.com/photo-1540959733332-eab4deceeaf7").`;
 
     let itineraryData = null;
     let attempts = 0;
@@ -540,6 +590,8 @@ Requirements:
     trip.country = itineraryData.country || currencyInfo.country;
     trip.currencyCode = itineraryData.currencyCode || currencyInfo.code;
     trip.currencySymbol = itineraryData.currencySymbol || currencyInfo.symbol;
+    trip.localBudget = localBudget;
+    trip.exchangeRate = exchangeRate;
     trip.destinationDetails = {
       region: itineraryData.destinationDetails?.region || "",
       latitude: itineraryData.destinationDetails?.latitude || 0,
