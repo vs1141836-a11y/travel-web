@@ -8,6 +8,8 @@ import connectDB from "./config/db.js";
 import authRoutes from "./routes/authRoutes.js";
 import tripRoutes from "./routes/tripRoutes.js";
 import aiRoutes from "./routes/aiRoutes.js";
+import destinationRoutes from "./routes/destinationRoutes.js";
+import currencyRoutes from "./routes/currencyRoutes.js";
 import { notFound, errorHandler } from "./middleware/errorMiddleware.js";
 
 dotenv.config();
@@ -42,6 +44,8 @@ app.use(cookieParser());
 app.use("/api/auth", authRoutes);
 app.use("/api/trips", tripRoutes);
 app.use("/api/ai", aiRoutes);
+app.use("/api/destinations", destinationRoutes);
+app.use("/api/currency", currencyRoutes);
 
 // Error Middleware
 app.use(notFound);

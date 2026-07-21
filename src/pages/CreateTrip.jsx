@@ -7,6 +7,7 @@ import Card from "../components/ui/Card";
 import Input from "../components/ui/Input";
 import api from "../utils/api";
 import toast from "react-hot-toast";
+import { getTodayLocalDateString, isPastDate, clampToToday } from "../utils/dateUtils";
 
 const AVAILABLE_INTERESTS = [
   "Culture", "Food", "Adventure", "Shopping", "Relaxation",
@@ -26,20 +27,17 @@ const CreateTrip = () => {
   const navigate = useNavigate();
   const shouldReduceMotion = useReducedMotion();
 
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = String(today.getMonth() + 1).padStart(2, "0");
-  const day = String(today.getDate()).padStart(2, "0");
-  const todayStr = `${year}-${month}-${day}`;
+  const todayStr = getTodayLocalDateString();
   
   const [step, setStep] = useState(1);
   const [isGenerating, setIsGenerating] = useState(false);
   const [loadingMsgIdx, setLoadingMsgIdx] = useState(0);
 
-  // Form State
+  // Form State - Default startDate to today's local date
+  const [source, setSource] = useState("India");
   const [destination, setDestination] = useState("");
   const [travelers, setTravelers] = useState(1);
-  const [startDate, setStartDate] = useState("");
+  const [startDate, setStartDate] = useState(todayStr);
   const [endDate, setEndDate] = useState("");
   const [budget, setBudget] = useState("");
   const [selectedInterests, setSelectedInterests] = useState([]);
@@ -72,19 +70,13 @@ const CreateTrip = () => {
       if (!startDate) return toast.error("Please select a start date");
       if (!endDate) return toast.error("Please select an end date");
 
-      // Timezone-agnostic local day check
-      const localToday = new Date();
-      localToday.setHours(0, 0, 0, 0);
-
-      const start = new Date(startDate);
-      start.setHours(0, 0, 0, 0);
-
-      if (start < localToday) {
-        return toast.error("Start date cannot be in the past");
+      if (isPastDate(startDate)) {
+        toast.error("Start date cannot be in the past. Clamped to today's local date.");
+        setStartDate(getTodayLocalDateString());
+        return;
       }
-
-      if (new Date(startDate) > new Date(endDate)) {
-        return toast.error("Start date must be before or equal to end date");
+      if (endDate < startDate) {
+        return toast.error("End date must be on or after the start date");
       }
       if (!budget || Number(budget) <= 0) return toast.error("Please enter a valid budget");
       setStep(3);
@@ -96,7 +88,8 @@ const CreateTrip = () => {
     try {
       // 1. Create the trip entry on server
       const tripResponse = await api.post("/trips", {
-        destination,
+        source: source.trim() || "India",
+        destination: destination.trim(),
         startDate,
         endDate,
         budget: Number(budget),
@@ -259,11 +252,19 @@ const CreateTrip = () => {
                   <p className="text-zinc-500 text-xs font-light">Input your target destination and number of explorers.</p>
                 </div>
                 
-                <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-3">
+                  <Input
+                    label="Departing From (Source)"
+                    id="source"
+                    placeholder="e.g. India, New York, or London"
+                    value={source}
+                    onChange={(e) => setSource(e.target.value)}
+                  />
+
                   <Input
                     label="Destination"
                     id="destination"
-                    placeholder="e.g. Kyoto, Japan or Paris, France"
+                    placeholder="e.g. Amsterdam, Netherlands or Kyoto, Japan"
                     value={destination}
                     onChange={(e) => setDestination(e.target.value)}
                   />
@@ -318,20 +319,49 @@ const CreateTrip = () => {
 
                 <div className="flex flex-col gap-3">
                   <div className="grid grid-cols-2 gap-4">
-                    <Input
-                      label="Start Date"
-                      type="date"
-                      id="startDate"
-                      value={startDate}
-                      onChange={(e) => setStartDate(e.target.value)}
-                    />
-                    <Input
-                      label="End Date"
-                      type="date"
-                      id="endDate"
-                      value={endDate}
-                      onChange={(e) => setEndDate(e.target.value)}
-                    />
+                    <div className="w-full flex flex-col gap-1.5 mb-4">
+                      <label htmlFor="startDate" className="text-zinc-400 text-xs font-semibold uppercase tracking-wider px-1">
+                        Start Date
+                      </label>
+                      <input
+                        type="date"
+                        id="startDate"
+                        value={startDate}
+                        min={todayStr}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (isPastDate(val)) {
+                            toast.error("Past dates are disabled. Selected today's local date.");
+                            setStartDate(todayStr);
+                          } else {
+                            setStartDate(val);
+                            if (endDate && val > endDate) setEndDate("");
+                          }
+                        }}
+                        className="w-full bg-zinc-900/50 border border-zinc-800 rounded-lg px-4 py-3 text-sm text-white placeholder-zinc-500 focus:border-brand-accent/50 focus:ring-1 focus:ring-brand-accent/30 transition-all duration-200 outline-none"
+                      />
+                    </div>
+                    <div className="w-full flex flex-col gap-1.5 mb-4">
+                      <label htmlFor="endDate" className="text-zinc-400 text-xs font-semibold uppercase tracking-wider px-1">
+                        End Date
+                      </label>
+                      <input
+                        type="date"
+                        id="endDate"
+                        value={endDate}
+                        min={startDate || todayStr}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val && val < (startDate || todayStr)) {
+                            toast.error("End date must be on or after start date.");
+                            setEndDate(startDate || todayStr);
+                          } else {
+                            setEndDate(val);
+                          }
+                        }}
+                        className="w-full bg-zinc-900/50 border border-zinc-800 rounded-lg px-4 py-3 text-sm text-white placeholder-zinc-500 focus:border-brand-accent/50 focus:ring-1 focus:ring-brand-accent/30 transition-all duration-200 outline-none"
+                      />
+                    </div>
                   </div>
 
                   <Input

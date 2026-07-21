@@ -499,6 +499,77 @@ Schema:
   return JSON.parse(content);
 };
 
+// @desc    AI Travel Chat assistant
+// @route   POST /api/ai/chat
+// @access  Private
+export const aiChat = async (req, res, next) => {
+  try {
+    const { message, destination, context } = req.body;
+    
+    if (!message) {
+      res.status(400);
+      return next(new Error("Message is required"));
+    }
+
+    const apiKey = process.env.OPENAI_API_KEY;
+    
+    if (apiKey) {
+      try {
+        const prompt = `You are an expert AI travel assistant helping a traveler planning a trip to "${destination || "an unknown destination"}".
+Context about their trip: ${context || "No additional context provided."}
+User message: "${message}"
+
+Respond helpfully and conversationally as a travel expert. Keep responses concise (2-4 paragraphs). Include specific recommendations when possible. Use emojis sparingly but effectively. Do NOT use markdown code blocks.`;
+        
+        const response = await axios.post(
+          "https://api.openai.com/v1/chat/completions",
+          {
+            model: "gpt-4o-mini",
+            messages: [
+              { role: "system", content: "You are a helpful travel assistant. Respond in plain text with line breaks for readability. Be specific and practical." },
+              { role: "user", content: prompt },
+            ],
+            temperature: 0.7,
+            max_tokens: 500,
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${apiKey}`,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+
+        const reply = response.data.choices[0].message.content.trim();
+        return res.json({ reply, source: "ai" });
+      } catch (aiErr) {
+        console.warn("AI Chat API failed, using smart fallback:", aiErr.message);
+      }
+    }
+
+    // Smart fallback responses
+    const msg = message.toLowerCase();
+    const dest = destination?.toLowerCase() || "";
+    let reply = "";
+
+    if (msg.includes("hotel") || msg.includes("stay") || msg.includes("accommodation")) {
+      reply = `🏨 For ${destination || "your destination"}, I recommend checking the Stay Recommendations section for curated hotels across budget, standard, premium, and luxury categories. Each listing includes ratings, prices, amenities, and booking links. Pro tip: Book at least 2-3 weeks in advance for better rates!`;
+    } else if (msg.includes("budget") || msg.includes("cost") || msg.includes("expensive") || msg.includes("money")) {
+      reply = `💰 Budget tips for ${destination || "your trip"}: Use the Currency Assistant to plan your expenses. General rule: allocate 35% for flights, 30% for hotels, 15% for food, 8% for local transport, 7% for shopping, and 5% for emergencies. Always keep 10-15% buffer for unexpected costs!`;
+    } else if (msg.includes("attraction") || msg.includes("place") || msg.includes("visit") || msg.includes("see")) {
+      reply = `🗺️ ${destination || "Your destination"} has amazing attractions! Check the Attractions tab for popular places with ratings, descriptions, visit duration, entry fees, and Google Maps links. I recommend starting with the top-rated attractions and mixing in some off-the-beaten-path spots for a well-rounded experience.`;
+    } else if (msg.includes("weather") || msg.includes("climate") || msg.includes("cold") || msg.includes("hot")) {
+      reply = `🌤️ Check the Weather tab for current conditions, 3-day forecast, and seasonal guidance for ${destination || "your destination"}. I also provide packing recommendations based on the season. Always check the forecast a few days before your trip for the most accurate information!`;
+    } else {
+      reply = `🌟 Welcome to TripCraft AI! I'm your travel assistant for ${destination || "your trip"}. I can help with: hotels & stays, popular attractions, budget planning, weather & packing, visa requirements, transportation, and local tips. Check the tabs above for detailed information, or ask me a specific question!`;
+    }
+
+    res.json({ reply, source: "fallback" });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // @desc    Generate full itinerary for a trip
 // @route   POST /api/trips/:id/generate-itinerary
 // @access  Private

@@ -28,6 +28,7 @@ const tripSchema = new mongoose.Schema(
       required: true 
     },
     destination: { type: String, required: true },
+    source: { type: String, default: "" },
     startDate: { type: String, required: true },
     endDate: { type: String, required: true },
     budget: { type: Number, required: true },

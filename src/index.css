@@ -12,6 +12,25 @@
   h1, h2, h3, h4, h5, h6 {
     @apply font-display tracking-wide;
   }
+
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(0.7);
+    cursor: pointer;
+  }
+
+  input[type="date"]::-webkit-datetime-edit {
+    color: white;
+  }
+
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  input[type="number"] {
+    -moz-appearance: textfield;
+  }
 }
 
 /* Custom Scrollbar */
@@ -26,6 +45,15 @@
 
 ::-webkit-scrollbar-thumb {
   @apply bg-zinc-800 rounded-full hover:bg-zinc-700 transition-colors;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 /* Lenis scroll resets */
@@ -64,6 +92,13 @@ html.lenis {
   border: 1px solid rgba(255, 255, 255, 0.03);
 }
 
+.glass-card {
+  background: rgba(24, 24, 27, 0.5);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
 /* Custom shimmer animation for skeletons */
 @keyframes shimmer {
   0% {
@@ -78,4 +113,19 @@ html.lenis {
   background: linear-gradient(90deg, #18181b 25%, #27272a 50%, #18181b 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite linear;
+}
+
+/* Line clamp utility */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }

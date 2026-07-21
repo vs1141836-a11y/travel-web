@@ -1,7 +1,5 @@
-import React from "react";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
-import { Trash2, Plus, Sparkles, RefreshCw, MapPin, Navigation } from "lucide-react";
-import Card from "../ui/Card";
+import { Trash2, Plus, RefreshCw, MapPin, Navigation } from "lucide-react";
 import Skeleton from "../ui/Skeleton";
 
 const CATEGORY_COLORS = {

@@ -22,6 +22,8 @@ const Input = forwardRef(({
         ref={ref}
         type={type}
         id={id}
+        aria-invalid={error ? "true" : "false"}
+        aria-describedby={error ? `${id}-error` : undefined}
         className={`w-full bg-zinc-900/50 border border-zinc-800 rounded-lg px-4 py-3 text-sm text-white placeholder-zinc-500 focus:border-brand-accent/50 focus:ring-1 focus:ring-brand-accent/30 transition-all duration-200 outline-none ${
           error ? "border-red-500/80 focus:border-red-500 focus:ring-red-500/30" : ""
         } ${className}`}

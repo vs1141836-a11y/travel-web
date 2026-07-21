@@ -27,6 +27,21 @@ export default {
       backgroundImage: {
         'gradient-hero': 'linear-gradient(135deg, #09090B 30%, #1E1B4B 100%)',
         'gradient-cta': 'linear-gradient(135deg, #1E1B4B 0%, #09090B 100%)',
+      },
+      animation: {
+        'fadeIn': 'fadeIn 0.2s ease-out',
+        'scaleIn': 'scaleIn 0.2s ease-out',
+        'shimmer': 'shimmer 1.5s infinite linear',
+      },
+      keyframes: {
+        fadeIn: {
+          '0%': { opacity: '0' },
+          '100%': { opacity: '1' },
+        },
+        scaleIn: {
+          '0%': { opacity: '0', transform: 'scale(0.95)' },
+          '100%': { opacity: '1', transform: 'scale(1)' },
+        },
       }
     },
   },

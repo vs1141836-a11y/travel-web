@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { Compass, Calendar, DollarSign, Users, ChevronLeft, Download, Plus, Sparkles, Sliders, Share2, X, Mail } from "lucide-react";
+import { Compass, Calendar, DollarSign, Users, ChevronLeft, Download, Plus, Sparkles, Share2, X, Mail, MapPin, Bed, Plane, Sun, Lightbulb, Bot, Globe, RefreshCw, BookOpen } from "lucide-react";
 import api from "../utils/api";
 import toast from "react-hot-toast";
 import Button from "../components/ui/Button";
@@ -8,6 +8,29 @@ import Skeleton from "../components/ui/Skeleton";
 import ItineraryPlanner from "../components/trip/ItineraryPlanner";
 import BudgetDashboard from "../components/trip/BudgetDashboard";
 import AddActivityModal from "../components/trip/AddActivityModal";
+import DestinationIntelligence from "../components/trip/DestinationIntelligence";
+import StayRecommendations from "../components/trip/StayRecommendations";
+import TransportationGuide from "../components/trip/TransportationGuide";
+import CurrencyAssistant from "../components/trip/CurrencyAssistant";
+import VisaGuidance from "../components/trip/VisaGuidance";
+import WeatherForecast from "../components/trip/WeatherForecast";
+import SmartTravelTips from "../components/trip/SmartTravelTips";
+import AITravelAssistant from "../components/trip/AITravelAssistant";
+import FlightSearch from "../components/trip/FlightSearch";
+
+const TABS = [
+  { id: "itinerary", label: "Itinerary", icon: Calendar },
+  { id: "budget", label: "Budget", icon: DollarSign },
+  { id: "attractions", label: "Attractions", icon: MapPin },
+  { id: "stays", label: "Stays", icon: Bed },
+  { id: "flights", label: "Flights", icon: Plane },
+  { id: "transport", label: "Transport Blueprint", icon: Compass },
+  { id: "currency", label: "Currency", icon: Globe },
+  { id: "visa", label: "Visa", icon: BookOpen },
+  { id: "weather", label: "Weather", icon: Sun },
+  { id: "tips", label: "Tips & Packing", icon: Lightbulb },
+  { id: "assistant", label: "AI Assistant", icon: Bot },
+];
 
 const TripDetail = () => {
   const { id } = useParams();
@@ -17,16 +40,13 @@ const TripDetail = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("itinerary");
   
-  // Weather state
   const [weather, setWeather] = useState(null);
   const [weatherLoading, setWeatherLoading] = useState(true);
 
-  // Sharing state
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [shareEmail, setShareEmail] = useState("");
   const [isSharing, setIsSharing] = useState(false);
 
-  // Modals & AI states
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [activeDayIdx, setActiveDayIdx] = useState(null);
   const [regeneratingDayIdx, setRegeneratingDayIdx] = useState(null);
@@ -80,7 +100,6 @@ const TripDetail = () => {
       updatedDays[destDayIdx].activities = destActivities;
     }
 
-    // Optimistic Update
     setTrip({ ...trip, days: updatedDays });
 
     try {
@@ -88,14 +107,13 @@ const TripDetail = () => {
       setTrip(res.data);
     } catch (err) {
       toast.error("Failed to save reordered timeline");
-      fetchTrip(); // Revert
+      fetchTrip();
     }
   };
 
   const handleDeleteActivity = async (dayIdx, actIdx) => {
     const updatedDays = [...trip.days];
     updatedDays[dayIdx].activities.splice(actIdx, 1);
-
     setTrip({ ...trip, days: updatedDays });
 
     try {
@@ -111,7 +129,6 @@ const TripDetail = () => {
   const handleAddActivity = async (newActivity) => {
     const updatedDays = [...trip.days];
     updatedDays[activeDayIdx].activities.push(newActivity);
-
     setTrip({ ...trip, days: updatedDays });
 
     try {
@@ -192,7 +209,6 @@ const TripDetail = () => {
 
   return (
     <div className="bg-brand-dark min-h-screen text-white pb-20 print:bg-white print:text-black print:pb-0">
-      {/* Detail Header / Print hidden */}
       <header className="bg-zinc-950/60 border-b border-zinc-900 px-6 py-4 flex items-center justify-between sticky top-0 z-30 print:hidden backdrop-blur-md">
         <button 
           onClick={() => navigate("/dashboard")}
@@ -214,9 +230,7 @@ const TripDetail = () => {
         </div>
       </header>
 
-      {/* Main Container */}
       <main className="max-w-6xl w-full mx-auto px-6 mt-10 print:mt-0 print:px-0">
-        {/* Info Grid Card */}
         <section 
           className="relative rounded-xl overflow-hidden border border-zinc-900 mb-8 print:border-none print:bg-transparent print:p-0 print:mb-12 min-h-[160px] flex items-end"
           style={{
@@ -234,7 +248,7 @@ const TripDetail = () => {
               <h1 className="text-4xl font-extrabold mt-1 text-white tracking-tight drop-shadow print:text-3xl">{trip.destination}</h1>
               {trip.destinationDetails?.region && (
                 <span className="text-zinc-400 text-xs mt-1 block font-light">
-                  {trip.destinationDetails.region} {trip.destinationDetails?.latitude ? `• Lat: ${trip.destinationDetails.latitude.toFixed(4)}, Long: ${trip.destinationDetails.longitude.toFixed(4)}` : ""}
+                  {trip.destinationDetails.region}
                 </span>
               )}
             </div>
@@ -260,111 +274,103 @@ const TripDetail = () => {
           </div>
         </section>
 
-        {/* Interactive Map & Weather integration / Print hidden */}
-        <section className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 print:hidden">
-          {/* Map Column */}
-          <div className="md:col-span-2 glass rounded-xl overflow-hidden border border-zinc-900 h-[220px] relative">
-            <iframe
-              title="Destination Map"
-              width="100%"
-              height="100%"
-              className="border-0 opacity-85 hover:opacity-100 transition-opacity duration-300"
-              src={`https://maps.google.com/maps?q=${encodeURIComponent(trip.destination)}&t=&z=12&ie=UTF8&iwloc=&output=embed`}
-              allowFullScreen
-            ></iframe>
-          </div>
-
-          {/* Weather Widget */}
-          <div className="glass rounded-xl p-5 border border-zinc-900 flex flex-col justify-between min-h-[220px]">
-            {weatherLoading ? (
-              <div className="flex flex-col gap-3 h-full justify-between">
-                <Skeleton height="h-[20px]" />
-                <Skeleton height="h-[60px]" />
-                <Skeleton height="h-[20px]" />
-              </div>
-            ) : weather ? (
-              <div className="flex flex-col h-full gap-4">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block">Forecast & Recommendation</span>
-                    <h4 className="text-sm font-bold truncate max-w-[140px]">{weather.current?.city || weather.city || trip.destination}</h4>
-                  </div>
-                  {(weather.current?.icon || weather.icon) && (
-                    <img
-                      src={`https://openweathermap.org/img/wn/${weather.current?.icon || weather.icon}@2x.png`}
-                      alt="current weather"
-                      className="w-10 h-10 -mt-2 shrink-0 filter drop-shadow"
-                    />
-                  )}
-                </div>
-
-                {/* 3-day forecast line */}
-                {weather.forecast && weather.forecast.length > 0 && (
-                  <div className="grid grid-cols-3 gap-2 py-2 border-t border-b border-zinc-900/60">
-                    {weather.forecast.map((f, idx) => (
-                      <div key={idx} className="flex flex-col items-center text-center">
-                        <span className="text-[8px] text-zinc-500 font-bold uppercase">{f.date}</span>
-                        <img 
-                          src={`https://openweathermap.org/img/wn/${f.icon}.png`} 
-                          alt={f.description} 
-                          className="w-6 h-6 my-0.5 filter drop-shadow" 
-                        />
-                        <span className="text-[10px] font-bold font-sans">{f.temp}°C</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Weather Recommendation */}
-                <div className="text-[10px] text-zinc-400 font-medium leading-relaxed bg-zinc-950/40 p-2.5 rounded-lg border border-zinc-900/40">
-                  {weather.recommendation || "Enjoy your day exploring the local area!"}
-                </div>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center h-full text-zinc-500 text-xs gap-1">
-                <span>Weather data unavailable</span>
-              </div>
-            )}
-          </div>
-        </section>
-
-        {/* Tab triggers / Print hidden */}
-        <div className="flex border-b border-zinc-900 mb-8 gap-6 print:hidden">
-          {["itinerary", "budget"].map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`pb-3 text-sm font-semibold uppercase tracking-wider cursor-pointer border-b-2 transition-all ${
-                activeTab === tab
-                  ? "border-brand-accent text-white"
-                  : "border-transparent text-zinc-500 hover:text-zinc-300"
-              }`}
-            >
-              {tab === "itinerary" ? "Itinerary Editor" : "Budget Analytics"}
-            </button>
-          ))}
+        {/* Tab Navigation */}
+        <div className="flex overflow-x-auto gap-1 mb-8 pb-1 print:hidden scrollbar-none">
+          {TABS.map((tab) => {
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center gap-1.5 px-3.5 py-2.5 rounded-lg text-[10px] font-bold uppercase tracking-wider whitespace-nowrap transition-all cursor-pointer ${
+                  activeTab === tab.id
+                    ? "bg-brand-accent text-brand-dark shadow-glow"
+                    : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/60 bg-zinc-900/30 border border-zinc-800/50"
+                }`}
+              >
+                <Icon size={12} />
+                {tab.label}
+              </button>
+            );
+          })}
         </div>
 
-        {/* Tab content */}
+        {/* Tab Content */}
         <div className="print:block">
           {activeTab === "itinerary" && (
-            <ItineraryPlanner
-              days={trip.days}
-              onDragEnd={handleDragEnd}
-              onDeleteActivity={handleDeleteActivity}
-              onOpenAddModal={(dayIdx) => {
-                setActiveDayIdx(dayIdx);
-                setIsAddModalOpen(true);
-              }}
-              onRegenerateDay={handleRegenerateDay}
-              regeneratingDayIndex={regeneratingDayIdx}
-              currencySymbol={trip.currencySymbol}
-            />
+            <div className="flex flex-col gap-6">
+              <ItineraryPlanner
+                days={trip.days}
+                onDragEnd={handleDragEnd}
+                onDeleteActivity={handleDeleteActivity}
+                onOpenAddModal={(dayIdx) => {
+                  setActiveDayIdx(dayIdx);
+                  setIsAddModalOpen(true);
+                }}
+                onRegenerateDay={handleRegenerateDay}
+                regeneratingDayIndex={regeneratingDayIdx}
+                currencySymbol={trip.currencySymbol}
+              />
+            </div>
           )}
 
           {activeTab === "budget" && (
             <div className="print:hidden">
               <BudgetDashboard trip={trip} />
+            </div>
+          )}
+
+          {activeTab === "attractions" && (
+            <div className="print:hidden">
+              <DestinationIntelligence destination={trip.destination} />
+            </div>
+          )}
+
+          {activeTab === "stays" && (
+            <div className="print:hidden">
+              <StayRecommendations destination={trip.destination} />
+            </div>
+          )}
+
+          {activeTab === "flights" && (
+            <div className="print:hidden">
+              <FlightSearch source={trip.source || "India"} destination={trip.destination} />
+            </div>
+          )}
+
+          {activeTab === "transport" && (
+            <div className="print:hidden">
+              <TransportationGuide source={trip.source || trip.country || "India"} destination={trip.destination} />
+            </div>
+          )}
+
+          {activeTab === "currency" && (
+            <div className="print:hidden">
+              <CurrencyAssistant destination={trip.destination} budget={trip.localBudget || trip.budget} />
+            </div>
+          )}
+
+          {activeTab === "visa" && (
+            <div className="print:hidden">
+              <VisaGuidance destination={trip.destination} />
+            </div>
+          )}
+
+          {activeTab === "weather" && (
+            <div className="print:hidden">
+              <WeatherForecast weather={weather} destination={trip.destination} loading={weatherLoading} />
+            </div>
+          )}
+
+          {activeTab === "tips" && (
+            <div className="print:hidden">
+              <SmartTravelTips destination={trip.destination} />
+            </div>
+          )}
+
+          {activeTab === "assistant" && (
+            <div className="print:hidden">
+              <AITravelAssistant destination={trip.destination} budget={trip.localBudget || trip.budget} currencySymbol={trip.currencySymbol} />
             </div>
           )}
         </div>
@@ -376,10 +382,9 @@ const TripDetail = () => {
         onAdd={handleAddActivity}
       />
 
-      {/* Share Itinerary Modal */}
       {isShareModalOpen && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="glass max-w-md w-full rounded-xl border border-zinc-800/80 p-6 flex flex-col gap-4 relative animate-scaleIn">
+          <div className="glass max-w-md w-full rounded-xl border border-zinc-800/80 p-6 flex flex-col gap-4 relative">
             <button
               onClick={() => setIsShareModalOpen(false)}
               className="absolute top-4 right-4 text-zinc-500 hover:text-white p-1 rounded-lg hover:bg-zinc-900 cursor-pointer"
@@ -418,7 +423,6 @@ const TripDetail = () => {
                     className="w-full bg-zinc-900/50 border border-zinc-800 rounded-lg px-4 py-3 text-xs text-white outline-none focus:border-brand-accent/50 transition-colors"
                   />
                 </div>
-                
                 <Button
                   type="submit"
                   variant="accent"
@@ -433,6 +437,8 @@ const TripDetail = () => {
           </div>
         </div>
       )}
+
+      <AITravelAssistant destination={trip.destination} />
     </div>
   );
 };

@@ -1,10 +1,10 @@
-import React from "react";
 import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import { Toaster } from "react-hot-toast";
 import { AuthProvider } from "./context/AuthContext";
 import SmoothScroll from "./components/SmoothScroll";
 import ProtectedRoute from "./components/ProtectedRoute";
+import ErrorBoundary from "./components/ErrorBoundary";
 
 // Pages
 import LandingPage from "./pages/LandingPage";
@@ -56,12 +56,13 @@ const AnimatedRoutes = () => {
 
 function App() {
   return (
-    <AuthProvider>
-      <SmoothScroll>
-        <Router>
-          <AnimatedRoutes />
-        </Router>
-        <Toaster 
+    <ErrorBoundary>
+      <AuthProvider>
+        <SmoothScroll>
+          <Router>
+            <AnimatedRoutes />
+          </Router>
+          <Toaster 
           position="bottom-right"
           toastOptions={{
             duration: 4000,
@@ -82,7 +83,8 @@ function App() {
           }}
         />
       </SmoothScroll>
-    </AuthProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
 

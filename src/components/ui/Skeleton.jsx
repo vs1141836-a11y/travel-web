@@ -2,7 +2,7 @@ import React from "react";
 
 const Skeleton = ({ 
   className = "", 
-  variant = "rect", // rect, circle
+  variant = "rect",
   height = "h-4",
   width = "w-full",
 }) => {
@@ -10,7 +10,9 @@ const Skeleton = ({
 
   return (
     <div 
-      className={`shimmer ${width} ${height} ${shapeClass} opacity-60 ${className}`} 
+      className={`shimmer ${width} ${height} ${shapeClass} opacity-60 ${className}`}
+      role="presentation"
+      aria-hidden="true"
     />
   );
 };

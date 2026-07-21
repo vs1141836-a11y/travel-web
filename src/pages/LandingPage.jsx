@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { Compass, Sparkles, Sliders, Calendar, ArrowRight } from "lucide-react";
+import { Compass, Sparkles, Sliders, Calendar, ArrowRight, MapPin, Bed, Globe, Shield, Sun, Bot, Plane, Lightbulb, BookOpen } from "lucide-react";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
 import { useAuth } from "../context/AuthContext";
@@ -216,36 +216,32 @@ const LandingPage = () => {
             <h2 className="text-4xl md:text-5xl font-display font-medium">Bespoke Features</h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <Card hoverable className="flex flex-col gap-4">
-              <div className="w-12 h-12 bg-zinc-900 rounded-lg flex items-center justify-center border border-zinc-800">
-                <Sparkles size={20} className="text-brand-accent" />
-              </div>
-              <h3 className="text-xl font-semibold">Hyper-Personalized AI</h3>
-              <p className="text-zinc-400 text-xs leading-relaxed">
-                Generates activities, travel categories, and food selections that respect interests and budget limits without canned template recommendations.
-              </p>
-            </Card>
-
-            <Card hoverable className="flex flex-col gap-4">
-              <div className="w-12 h-12 bg-zinc-900 rounded-lg flex items-center justify-center border border-zinc-800">
-                <Sliders size={20} className="text-indigo-400" />
-              </div>
-              <h3 className="text-xl font-semibold">Drag-and-Drop Editor</h3>
-              <p className="text-zinc-400 text-xs leading-relaxed">
-                Seamless drag mechanics allow swapping events, tweaking hours, and building custom slots. Fully responsive layout.
-              </p>
-            </Card>
-
-            <Card hoverable className="flex flex-col gap-4">
-              <div className="w-12 h-12 bg-zinc-900 rounded-lg flex items-center justify-center border border-zinc-800">
-                <Calendar size={20} className="text-emerald-400" />
-              </div>
-              <h3 className="text-xl font-semibold">Budget Dashboards</h3>
-              <p className="text-zinc-400 text-xs leading-relaxed">
-                Premium visual tracking categories (meals, transport, activities) automatically map costs to compare actual totals against constraints.
-              </p>
-            </Card>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {[
+              { icon: Sparkles, title: "Hyper-Personalized AI", desc: "Generates custom itineraries respecting interests, budget, and travel dates using advanced AI models." },
+              { icon: Sliders, title: "Drag-and-Drop Editor", desc: "Seamless drag mechanics to rearrange events, tweak hours, and build custom day-by-day plans." },
+              { icon: Calendar, title: "Budget Dashboards", desc: "Visual tracking of categories (meals, transport, activities) against your total budget with charts." },
+              { icon: MapPin, title: "Destination Intelligence", desc: "Curated attractions, ratings, visit duration, entry fees, and Google Maps links for every destination." },
+              { icon: Bed, title: "Stay Recommendations", desc: "Curated hotels from Budget to Luxury with ratings, amenities, distance, and booking links." },
+              { icon: Globe, title: "Currency Assistant", desc: "Live exchange rates, budget calculator, and expense breakdown by category in local currency." },
+              { icon: Shield, title: "Visa Guidance", desc: "Automated visa requirements, document checklists, processing times, fees, and official links." },
+              { icon: Sun, title: "Weather Forecast", desc: "Current weather, 3-day forecast, best seasons, and smart packing recommendations." },
+              { icon: Bot, title: "AI Travel Assistant", desc: "24/7 chatbot answering questions about hotels, attractions, transport, budget, visa, and local tips." },
+              { icon: Plane, title: "Transport Guide", desc: "Flight recommendations, local transport options, SIM cards, airport tips, and travel requirements." },
+              { icon: Lightbulb, title: "Smart Travel Tips", desc: "Local safety tips, cultural etiquette, emergency numbers, language basics, and pro travel advice." },
+              { icon: BookOpen, title: "PDF Export & Share", desc: "Generate styled PDF itineraries, share via email or link, and collaborate with co-travelers." },
+            ].map((feature, idx) => {
+              const Icon = feature.icon;
+              return (
+                <Card key={idx} hoverable className="flex flex-col gap-3 p-5">
+                  <div className="w-10 h-10 bg-zinc-900 rounded-lg flex items-center justify-center border border-zinc-800">
+                    <Icon size={18} className="text-brand-accent" />
+                  </div>
+                  <h3 className="text-base font-semibold">{feature.title}</h3>
+                  <p className="text-zinc-400 text-[11px] leading-relaxed">{feature.desc}</p>
+                </Card>
+              );
+            })}
           </div>
         </div>
       </section>

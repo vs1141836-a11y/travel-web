@@ -18,6 +18,7 @@ const router = express.Router();
 
 const createTripSchema = z.object({
   destination: z.string().min(1, "Destination is required"),
+  source: z.string().default(""),
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Start date must be YYYY-MM-DD"),
   endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "End date must be YYYY-MM-DD"),
   budget: z.number().nonnegative("Budget must be 0 or greater"),
